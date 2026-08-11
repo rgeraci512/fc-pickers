@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>FC PICKERS</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1F3864">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Picks">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --navy:#1F3864; --bg:#F4F6F8; --ink:#1a1d21;
+    --strong:#1E7B34; --lean:#2E74B5; --slim:#8A8F98; --key:#B02418;
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:var(--bg);color:var(--ink);
+       padding-top:env(safe-area-inset-top)}
+  header{background:var(--navy);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 12px;
+         position:sticky;top:0;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+  header h1{margin:0;font-size:20px;display:flex;align-items:center;gap:8px}
+  header .sub{opacity:.85;font-size:12px;margin-top:4px}
+  #refresh{margin-left:auto;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;
+           padding:6px 12px;font-size:13px;font-weight:600}
+  #refresh:active{background:rgba(255,255,255,.3)}
+  .chips{display:flex;gap:8px;padding:12px 12px 2px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .chip{border:1px solid #c9d0d8;background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;
+        font-weight:600;color:#444;white-space:nowrap}
+  .chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .summary{background:#fff;margin:12px;border-radius:10px;padding:12px 14px;font-size:14px;
+           box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .card{background:#fff;margin:10px 12px;border-radius:10px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .badge{color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;margin-right:8px}
+  .keytag{background:var(--key);color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;margin-left:6px}
+  .pick{font-weight:700;font-size:16px}
+  .row1{display:flex;align-items:center;flex-wrap:wrap}
+  .row2{color:#555;font-size:12px;margin-top:5px}
+  .row3{color:#777;font-size:12px;margin-top:2px;font-style:italic}
+  footer{color:#888;font-size:11px;padding:14px 16px calc(24px + env(safe-area-inset-bottom))}
+  #offline{display:none;background:#7A5C00;color:#fff;font-size:12px;text-align:center;padding:6px}
+  #empty{text-align:center;color:#777;padding:40px 20px;font-size:14px}
+  /* lock screen */
+  #lock{position:fixed;inset:0;background:var(--navy);z-index:100;display:flex;flex-direction:column;
+        align-items:center;justify-content:center;color:#fff;padding:24px}
+  #lock .ball{font-size:56px;margin-bottom:10px}
+  #lock h2{margin:0 0 4px;font-size:22px}
+  #lock p{margin:0 0 22px;opacity:.75;font-size:14px}
+  #pc{font-size:28px;letter-spacing:12px;text-align:center;width:230px;padding:10px 0 10px 12px;
+      border-radius:12px;border:none;outline:none;background:rgba(255,255,255,.12);color:#fff}
+  #pc::placeholder{letter-spacing:2px;font-size:15px;opacity:.6}
+  #unlock{margin-top:18px;background:#fff;color:var(--navy);border:none;border-radius:12px;
+          padding:12px 40px;font-size:16px;font-weight:700}
+  #lockerr{color:#FFB4A8;font-size:13px;margin-top:14px;min-height:18px}
+  .shake{animation:sh .35s}
+  @keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+</style>
+</head>
+<body>
+<div id="lock">
+  <div class="ball">🏈</div>
+  <h2>FC PICKERS</h2>
+  <p>Enter your passcode</p>
+  <input id="pc" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="passcode">
+  <button id="unlock">Unlock</button>
+  <div id="lockerr"></div>
+</div>
+<header>
+  <h1>🏈 FC PICKERS <button id="refresh">↻ Refresh</button></h1>
+  <div class="sub" id="subline">Loading picks…</div>
+</header>
+<div id="offline">Offline — showing your last saved pick sheet</div>
+<div class="chips" id="chips"></div>
+<div class="summary" id="summary" style="display:none"></div>
+<div id="cards"></div>
+<div id="empty" style="display:none">No picks loaded yet. Tap Refresh once this week's sheet is built.</div>
+<footer>System: pool-number vs market movement first, pro-consensus fallback, key-number pricing.
+Validated on 2021–2025: 51.6–56.0% ATS vs posted numbers every season.
+The edge is the season, not the single game.</footer>
+<script>
+const BADGE={STRONG:'var(--strong)',LEAN:'var(--lean)',SLIM:'var(--slim)'};
+const FILTERS=['All','STRONG','LEAN','KEY #'];
+let data=null, filter='All';
+
+function esc(s){const d=document.createElement('div');d.textContent=String(s);return d.innerHTML;}
+
+function lineDisp(g){
+  const homePick = g.pick===g.home, pl=g.pool_line;
+  const v = homePick ? -pl : pl;
+  return (v>0?'+':'-')+Math.abs(v).toFixed(1);
+}
+
+function render(){
+  const chips=document.getElementById('chips');
+  chips.innerHTML=FILTERS.map(f=>`<button class="chip${f===filter?' on':''}" data-f="${f}">${f}</button>`).join('');
+  chips.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{filter=b.dataset.f;render();});
+  const cards=document.getElementById('cards'), sum=document.getElementById('summary'),
+        empty=document.getElementById('empty'), sub=document.getElementById('subline');
+  if(!data||!data.games||!data.games.length){cards.innerHTML='';sum.style.display='none';empty.style.display='block';return;}
+  empty.style.display='none';
+  sub.textContent=`${data.week} • generated ${data.generated} • pool #s: ${data.pool_source}`;
+  const g=data.games, ns=g.filter(x=>x.strength==='STRONG').length, nl=g.filter(x=>x.strength==='LEAN').length;
+  sum.style.display='block';
+  sum.innerHTML=`<b>${g.length} games</b> — ${ns} strong plays, ${nl} leans, ${g.length-ns-nl} coin-flips.
+    Ordered by edge. <b>KEY #</b> marks games near 3 or 7 where the half point matters most.
+    <br><b>Tiebreaker:</b> ${esc(data.tiebreaker||'staged automatically once the designated game posts.')}`;
+  const shown=g.filter(x=>filter==='All'||(filter==='KEY #'?x.keynum:x.strength===filter));
+  cards.innerHTML=shown.map(x=>`
+    <div class="card">
+      <div class="row1"><span class="badge" style="background:${BADGE[x.strength]}">${x.strength}</span>
+        <span class="pick">${esc(x.pick)} ${lineDisp(x)}</span>${x.keynum?'<span class="keytag">KEY #</span>':''}</div>
+      <div class="row2">${esc(x.road)} at ${esc(x.home)} &nbsp;•&nbsp; pool # ${x.pool_line>0?'+':''}${x.pool_line.toFixed(1)} | market ${x.market_line>0?'+':''}${x.market_line.toFixed(1)}</div>
+      <div class="row3">${esc(x.why)}</div>
+    </div>`).join('');
+}
+
+// ---- crypto: AES-256-GCM, key = PBKDF2-SHA256(passcode, salt, iter) ----
+const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function decrypt(env, pass){
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
+  const key=await crypto.subtle.deriveKey(
+    {name:'PBKDF2',salt:b64d(env.salt),iterations:env.iter,hash:'SHA-256'},
+    km,{name:'AES-GCM',length:256},false,['decrypt']);
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(env.iv)},key,b64d(env.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+async function fetchEnv(fresh){
+  const r=await fetch('picks.enc'+(fresh?('?t='+Date.now()):''),{cache:fresh?'reload':'default'});
+  if(!r.ok) throw new Error('fetch failed');
+  return r.json();
+}
+
+function savedPass(){try{return localStorage.getItem('pc')||'';}catch(e){return '';}}
+
+async function load(fresh){
+  const pass=savedPass();
+  if(!pass){showLock();return;}
+  try{
+    const env=await fetchEnv(fresh);
+    data=await decrypt(env,pass);
+    document.getElementById('offline').style.display='none';
+    hideLock();
+  }catch(e){
+    if(String(e).includes('fetch')){
+      document.getElementById('offline').style.display='block';
+      document.getElementById('subline').textContent='Could not load picks — check connection and tap Refresh.';
+    }else{showLock('Passcode no longer matches — re-enter it.');return;}
+  }
+  render();
+}
+
+function showLock(msg){
+  document.getElementById('lock').style.display='flex';
+  document.getElementById('lockerr').textContent=msg||'';
+  setTimeout(()=>document.getElementById('pc').focus(),50);
+}
+function hideLock(){document.getElementById('lock').style.display='none';}
+
+async function tryUnlock(){
+  const inp=document.getElementById('pc'), err=document.getElementById('lockerr'),
+        btn=document.getElementById('unlock');
+  const pass=inp.value.trim();
+  if(!pass) return;
+  btn.textContent='…'; err.textContent='';
+  try{
+    const env=await fetchEnv(false);
+    data=await decrypt(env,pass);
+    try{localStorage.setItem('pc',pass);}catch(e){}
+    hideLock(); render();
+  }catch(e){
+    inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake');
+    err.textContent=String(e).includes('fetch')?'No connection — try again online.':'Wrong passcode — try again.';
+    inp.value='';
+  }
+  btn.textContent='Unlock';
+}
+document.getElementById('unlock').onclick=tryUnlock;
+document.getElementById('pc').addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock();});
+document.getElementById('refresh').onclick=()=>load(true);
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+load(false);
+</script>
+</body>
+</html>
