@@ -57,6 +57,17 @@
          align-items:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}
   .confbox{color:#fff;font-size:24px;font-weight:800;border-radius:10px;min-width:52px;text-align:center;
            padding:10px 0;margin-right:14px}
+  /* live scores + close-game alerts */
+  #bell{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;
+        padding:6px 10px;font-size:13px;font-weight:600;margin-left:8px}
+  .scoreline{margin-top:6px;font-size:13px;font-weight:600;color:#555}
+  .scoreline .liv{color:#B02418}
+  .closebadge{background:var(--key);color:#fff;border-radius:4px;padding:1px 7px;font-size:11px;
+              font-weight:700;margin-left:6px;animation:pulse 1.2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  #gamealert{display:none;background:var(--key);color:#fff;font-size:13px;font-weight:600;
+             padding:8px 14px;text-align:center}
+  .card.closegame,.tcard.closegame{box-shadow:0 0 0 2px var(--key), 0 1px 3px rgba(0,0,0,.15)}
   /* lock screen */
   #lock{position:fixed;inset:0;background:var(--navy);z-index:100;display:flex;flex-direction:column;
         align-items:center;justify-content:center;color:#fff;padding:24px}
@@ -83,10 +94,11 @@
   <div id="lockerr"></div>
 </div>
 <header>
-  <h1>🏈 <span id="appname">FC PICKERS</span> <button id="refresh">↻ Refresh</button></h1>
+  <h1>🏈 <span id="appname">FC PICKERS</span> <button id="refresh">↻ Refresh</button><button id="bell" title="Close-game alerts">🔔</button></h1>
   <div class="sub" id="subline">Loading picks…</div>
 </header>
 <div id="offline">Offline — showing your last saved pick sheet</div>
+<div id="gamealert"></div>
 <div id="pooltabs"></div>
 <div id="warn" class="warn" style="display:none"></div>
 <div class="chips" id="chips"></div>
@@ -115,6 +127,116 @@ function tgTier(p){
   if(p>=0.60)return{c:'var(--slim)',t:'EDGE'};
   return{c:'var(--slim)',t:'COIN-FLIP'};
 }
+
+// ================= LIVE SCORES + CLOSE-GAME ALERTS =================
+const SCOREBOARD='https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300';
+let liveScores={};          // norm(road)@norm(home) -> score object
+const alerted=new Set();    // one close-game alert per game
+const ALIAS={'mississippi':'ole miss','southern mississippi':'southern miss',
+  'louisiana monroe':'ul monroe','massachusetts':'umass','florida intl':'florida international',
+  'central florida':'ucf','connecticut':'uconn','brigham young':'byu',
+  'southern california':'usc','pittsburgh':'pitt','louisiana lafayette':'louisiana',
+  'texas christian':'tcu','southern methodist':'smu','miami fl':'miami','miami oh':'miami oh',
+  'n c state':'nc state','north carolina state':'nc state'};
+function norm(s){
+  s=String(s).toLowerCase().replace(/[.&'()]/g,'').replace(/-/g,' ').replace(/\s+/g,' ').trim();
+  s=s.replace(/\bst\b/g,'state').replace(/\bintl\b/g,'international').replace(/\bmich\b/g,'michigan')
+     .replace(/\bill\b/g,'illinois').replace(/\btenn\b/g,'tennessee').replace(/\bfla\b/g,'florida')
+     .replace(/\bwash\b/g,'washington').replace(/\bcaro\b/g,'carolina');
+  return ALIAS[s]||s;
+}
+function gkey(g){return norm(g.road)+'@'+norm(g.home);}
+function clockSecs(c){const m=String(c||'').match(/(\d+):(\d+)/);return m?(+m[1]*60)+(+m[2]):0;}
+
+function closeness(sc){
+  if(sc.state!=='in')return null;
+  const m=Math.abs(sc.hs-sc.as);
+  if(sc.period>=5&&m<=8)return 'overtime';
+  if(sc.period===4&&m<=8)return '4th quarter, one score';
+  if(sc.period===3&&clockSecs(sc.clock)<=300&&m<=4)return 'late 3rd, tight';
+  return null;
+}
+
+async function updateScores(){
+  let events;
+  try{
+    const r=await fetch(SCOREBOARD,{cache:'no-store'});
+    if(!r.ok)return;
+    events=(await r.json()).events||[];
+  }catch(e){return;}
+  const idx={};
+  for(const ev of events){
+    const comp=(ev.competitions||[])[0]; if(!comp)continue;
+    const cs=comp.competitors||[]; if(cs.length<2)continue;
+    const H=cs.find(c=>c.homeAway==='home'), A=cs.find(c=>c.homeAway==='away');
+    if(!H||!A)continue;
+    const keys=c=>[c.team.location,c.team.shortDisplayName,c.team.abbreviation,c.team.displayName]
+      .filter(Boolean).map(norm);
+    const st=comp.status||ev.status||{};
+    const sc={hs:+H.score||0,as:+A.score||0,state:(st.type||{}).state||'pre',
+      period:st.period||0,clock:st.displayClock||'', detail:(st.type||{}).shortDetail||'',
+      hn:H.team.shortDisplayName||H.team.location, an:A.team.shortDisplayName||A.team.location};
+    for(const hk of keys(H))for(const ak of keys(A)){idx[ak+'@'+hk]=sc;idx[hk+'@'+ak]=sc;}
+  }
+  liveScores={};
+  const closeNow=[];
+  for(const p of pools())for(const g of (p.games||[])){
+    const sc=idx[gkey(g)]; if(!sc)continue;
+    liveScores[gkey(g)]=sc;
+    const why=closeness(sc);
+    if(why){
+      sc.close=true;
+      const line=`${sc.an} ${sc.as}–${sc.hs} ${sc.hn}`;
+      if(!closeNow.some(c=>c.line===line))closeNow.push({line,why,sc});
+    }
+  }
+  const bar=document.getElementById('gamealert');
+  if(closeNow.length){
+    bar.style.display='block';
+    bar.textContent='🚨 CLOSE GAME: '+closeNow.map(c=>`${c.line} (${c.sc.detail||c.why})`).join('  •  ');
+  }else bar.style.display='none';
+  for(const c of closeNow){
+    const id=c.line.replace(/\d+/g,'');    // one alert per matchup, not per score change
+    if(alerted.has(id))continue;
+    alerted.add(id);
+    notify('🚨 Close game alert',`${c.line} — ${c.sc.detail||c.why}. One to watch!`);
+  }
+  render();
+}
+
+async function notify(title,body){
+  try{
+    if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+    const reg=await navigator.serviceWorker.getRegistration();
+    if(reg&&reg.showNotification)reg.showNotification(title,{body,icon:'icon-192.png',badge:'icon-192.png'});
+    else new Notification(title,{body,icon:'icon-192.png'});
+  }catch(e){}
+}
+
+function scoreHtml(g){
+  const sc=liveScores[gkey(g)]; if(!sc)return '';
+  if(sc.state==='pre')return '';
+  const line=`${esc(sc.an)} ${sc.as}–${sc.hs} ${esc(sc.hn)}`;
+  if(sc.state==='post')return `<div class="scoreline">FINAL: ${line}</div>`;
+  return `<div class="scoreline"><span class="liv">🔴 LIVE</span> ${esc(sc.detail||('Q'+sc.period+' '+sc.clock))} — ${line}`+
+         (sc.close?'<span class="closebadge">CLOSE GAME</span>':'')+`</div>`;
+}
+function isClose(g){const sc=liveScores[gkey(g)];return !!(sc&&sc.close);}
+
+function updateBell(){
+  const b=document.getElementById('bell');
+  if(typeof Notification==='undefined'){b.style.display='none';return;}
+  b.textContent=Notification.permission==='granted'?'🔔✓':'🔔';
+}
+document.getElementById('bell').onclick=async()=>{
+  if(typeof Notification==='undefined')return;
+  if(Notification.permission!=='granted')await Notification.requestPermission();
+  updateBell();
+  if(Notification.permission==='granted')notify('Alerts on','You\'ll get a ping when a game gets close.');
+};
+setInterval(()=>{if(!document.hidden&&data)updateScores();},60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&data)updateScores();});
+// ===================================================================
 
 function esc(s){const d=document.createElement('div');d.textContent=String(s);return d.innerHTML;}
 
@@ -153,12 +275,15 @@ function render(){
     sum.innerHTML=`<b>${pool.games.length} games, ${total} points possible.</b> Straight-up picks —
       big number = most points if they win. Coin-flips belong at the bottom:
       losses down there cost 1–3 points instead of 18–20.`;
-    cards.innerHTML=pool.games.map(x=>{const t=tgTier(x.win_prob);return `
-      <div class="tcard">
+    cards.innerHTML=pool.games.map(x=>{const t=tgTier(x.win_prob);
+      const tg={home:x.venue==='home'?x.pick:x.against, road:x.venue==='home'?x.against:x.pick};
+      return `
+      <div class="tcard${isClose(tg)?' closegame':''}">
         <div class="confbox" style="background:${t.c}">${x.rank}</div>
         <div><div class="pick">${esc(x.pick)}</div>
         <div class="row2">over ${esc(x.against)} (${x.venue==='home'?'home':'on the road'})
-          &nbsp;•&nbsp; ${Math.min(99,Math.round(x.win_prob*100))}% to win &nbsp;•&nbsp; ${t.t}</div></div>
+          &nbsp;•&nbsp; ${Math.min(99,Math.round(x.win_prob*100))}% to win &nbsp;•&nbsp; ${t.t}</div>
+        ${scoreHtml(tg)}</div>
       </div>`;}).join('');
     return;
   }
@@ -174,11 +299,12 @@ function render(){
     <br><b>Tiebreaker:</b> ${esc(pool.tiebreaker||'staged automatically once the designated game posts.')}`;
   const shown=g.filter(x=>filter==='All'||(filter==='KEY #'?x.keynum:x.strength===filter));
   cards.innerHTML=shown.map(x=>`
-    <div class="card">
+    <div class="card${isClose(x)?' closegame':''}">
       <div class="row1"><span class="badge" style="background:${BADGE[x.strength]}">${x.strength}</span>
         <span class="pick">${esc(x.pick)} ${lineDisp(x)}</span>${x.keynum?'<span class="keytag">KEY #</span>':''}</div>
       <div class="row2">${esc(x.road)} at ${esc(x.home)} &nbsp;•&nbsp; pool # ${x.pool_line>0?'+':''}${x.pool_line.toFixed(1)} | market ${x.market_line>0?'+':''}${x.market_line.toFixed(1)}</div>
       <div class="row3">${esc(x.why)}</div>
+      ${scoreHtml(x)}
     </div>`).join('');
 }
 
@@ -209,6 +335,7 @@ async function load(fresh){
     data=await decrypt(env,pass);
     document.getElementById('offline').style.display='none';
     hideLock();
+    updateScores();
   }catch(e){
     if(String(e).includes('fetch')){
       document.getElementById('offline').style.display='block';
@@ -235,7 +362,7 @@ async function tryUnlock(){
     const env=await fetchEnv(false);
     data=await decrypt(env,pass);
     try{localStorage.setItem('pc',pass);}catch(e){}
-    hideLock(); render();
+    hideLock(); render(); updateScores();
   }catch(e){
     inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake');
     err.textContent=String(e).includes('fetch')?'No connection — try again online.':'Wrong passcode — try again.';
@@ -247,6 +374,7 @@ document.getElementById('unlock').onclick=tryUnlock;
 document.getElementById('pc').addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock();});
 document.getElementById('refresh').onclick=()=>load(true);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+updateBell();
 load(false);
 </script>
 </body>

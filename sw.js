@@ -1,6 +1,6 @@
 // FC PICKERS service worker — offline-capable pick sheet
-const SHELL_CACHE = 'shell-v3';
-const DATA_CACHE  = 'data-v3';
+const SHELL_CACHE = 'shell-v4';
+const DATA_CACHE  = 'data-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
@@ -17,6 +17,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
+  if (url.origin !== location.origin) return; // live-score API etc: straight to network
   if (url.pathname.endsWith('picks.enc')) {
     // network-first: always try for this week's freshest picks, fall back to last saved
     e.respondWith(
