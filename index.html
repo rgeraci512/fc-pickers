@@ -68,6 +68,9 @@
   #gamealert{display:none;background:var(--key);color:#fff;font-size:13px;font-weight:600;
              padding:8px 14px;text-align:center}
   .card.closegame,.tcard.closegame{box-shadow:0 0 0 2px var(--key), 0 1px 3px rgba(0,0,0,.15)}
+  .recbar{background:#fff;margin:12px 12px 0;border-radius:10px;padding:11px 14px;font-size:14px;
+          box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid var(--navy);line-height:1.5}
+  body.tg .recbar{border-left-color:var(--purple)}
   /* lock screen */
   #lock{position:fixed;inset:0;background:var(--navy);z-index:100;display:flex;flex-direction:column;
         align-items:center;justify-content:center;color:#fff;padding:24px}
@@ -102,6 +105,7 @@
 <div id="pooltabs"></div>
 <div id="warn" class="warn" style="display:none"></div>
 <div class="chips" id="chips"></div>
+<div id="rec"></div>
 <div class="summary" id="summary" style="display:none"></div>
 <div id="cards"></div>
 <div id="empty" style="display:none">No picks loaded yet. Tap Refresh once this week's sheet is built.</div>
@@ -176,7 +180,10 @@ async function updateScores(){
     const sc={hs:+H.score||0,as:+A.score||0,state:(st.type||{}).state||'pre',
       period:st.period||0,clock:st.displayClock||'', detail:(st.type||{}).shortDetail||'',
       hn:H.team.shortDisplayName||H.team.location, an:A.team.shortDisplayName||A.team.location};
-    for(const hk of keys(H))for(const ak of keys(A)){idx[ak+'@'+hk]=sc;idx[hk+'@'+ak]=sc;}
+    for(const hk of keys(H))for(const ak of keys(A)){
+      idx[ak+'@'+hk]={...sc,flip:false};   // our road@home matches ESPN away@home
+      idx[hk+'@'+ak]={...sc,flip:true};    // neutral-site / flipped listing
+    }
   }
   liveScores={};
   const closeNow=[];
@@ -213,11 +220,55 @@ async function notify(title,body){
   }catch(e){}
 }
 
-function scoreHtml(g){
+// ---- live grading + record ----
+function gradeFC(g){                       // ATS vs pool number
+  const sc=liveScores[gkey(g)]; if(!sc||sc.state!=='post')return null;
+  const hs=sc.flip?sc.as:sc.hs, as=sc.flip?sc.hs:sc.as;   // scores in OUR home/road orientation
+  const margin=hs-as;
+  if(margin===g.pool_line)return 'P';
+  return (g.pick===g.home)===(margin>g.pool_line)?'W':'L';
+}
+function gradeTG(x){                       // straight up
+  const tg={home:x.venue==='home'?x.pick:x.against, road:x.venue==='home'?x.against:x.pick};
+  const sc=liveScores[gkey(tg)]; if(!sc||sc.state!=='post')return null;
+  const hs=sc.flip?sc.as:sc.hs, as=sc.flip?sc.hs:sc.as;
+  const winner=hs>as?tg.home:tg.road;
+  return x.pick===winner?'W':'L';
+}
+function pct(w,l){const n=w+l;return n?Math.round(100*w/n)+'%':'—';}
+function recordHtml(pool){
+  const isTG=pool.type==='confidence';
+  let w=0,l=0,p=0,pts=0,ptsMax=0;
+  for(const g of (pool.games||[])){
+    const r=isTG?gradeTG(g):gradeFC(g);
+    if(isTG){ptsMax+=g.rank; if(r==='W')pts+=g.rank;}
+    if(r==='W')w++;else if(r==='L')l++;else if(r==='P')p++;
+  }
+  const base=pool.record||{};
+  // if the official record already includes this week, use live grades instead (no double count)
+  const bw=(base.weeks&&base.weeks[data.week])||{w:0,l:0,p:0,pts:0};
+  const sw=(base.w||0)-(bw.w||0)+w, sl=(base.l||0)-(bw.l||0)+l, sp=((base.p||0)-(bw.p||0))+p;
+  const parts=[];
+  parts.push(`<b>This week:</b> ${w}–${l}${p?'–'+p:''} (${pct(w,l)})`);
+  parts.push(`<b>Season:</b> ${sw}–${sl}${sp?'–'+sp:''} (${pct(sw,sl)})`);
+  if(isTG&&(w+l+(base.pts||0)))parts.push(`<b>Points:</b> ${pts+(base.pts||0)-(bw.pts||0)}`);
+  let s=`🏆 ${parts.join(' &nbsp;•&nbsp; ')}`;
+  if(pool.standing&&pool.standing.place)
+    s+=`<br>📍 <b>${esc(pool.standing.place)}</b> of ${esc(pool.standing.of||'?')}${pool.standing.as_of?' • '+esc(pool.standing.as_of):''}`;
+  else s+=`<br>📍 Pool standing: posts after the first week is scored.`;
+  return `<div class="recbar">${s}</div>`;
+}
+
+function scoreHtml(g,grade){
   const sc=liveScores[gkey(g)]; if(!sc)return '';
   if(sc.state==='pre')return '';
   const line=`${esc(sc.an)} ${sc.as}–${sc.hs} ${esc(sc.hn)}`;
-  if(sc.state==='post')return `<div class="scoreline">FINAL: ${line}</div>`;
+  if(sc.state==='post'){
+    const tag=grade==='W'?' <span style="color:var(--strong);font-weight:800">✓ WIN</span>'
+             :grade==='L'?' <span style="color:var(--key);font-weight:800">✗ LOSS</span>'
+             :grade==='P'?' <span style="color:#7A5C00;font-weight:800">PUSH</span>':'';
+    return `<div class="scoreline">FINAL: ${line}${tag}</div>`;
+  }
   return `<div class="scoreline"><span class="liv">🔴 LIVE</span> ${esc(sc.detail||('Q'+sc.period+' '+sc.clock))} — ${line}`+
          (sc.close?'<span class="closebadge">CLOSE GAME</span>':'')+`</div>`;
 }
@@ -260,10 +311,12 @@ function render(){
   document.getElementById('appname').textContent=isTG?'TAILGATE SPECIAL':'FC PICKERS';
   const cards=document.getElementById('cards'), sum=document.getElementById('summary'),
         empty=document.getElementById('empty'), sub=document.getElementById('subline'),
-        warn=document.getElementById('warn'), chips=document.getElementById('chips');
+        warn=document.getElementById('warn'), chips=document.getElementById('chips'),
+        rec=document.getElementById('rec');
   if(!pool||!pool.games||!pool.games.length){cards.innerHTML='';sum.style.display='none';
-    chips.style.display='none';warn.style.display='none';empty.style.display='block';return;}
+    chips.style.display='none';warn.style.display='none';rec.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
+  rec.innerHTML=recordHtml(pool);
   if(isTG){
     chips.style.display='none';
     warn.style.display='block';
@@ -283,7 +336,7 @@ function render(){
         <div><div class="pick">${esc(x.pick)}</div>
         <div class="row2">over ${esc(x.against)} (${x.venue==='home'?'home':'on the road'})
           &nbsp;•&nbsp; ${Math.min(99,Math.round(x.win_prob*100))}% to win &nbsp;•&nbsp; ${t.t}</div>
-        ${scoreHtml(tg)}</div>
+        ${scoreHtml(tg,gradeTG(x))}</div>
       </div>`;}).join('');
     return;
   }
@@ -304,7 +357,7 @@ function render(){
         <span class="pick">${esc(x.pick)} ${lineDisp(x)}</span>${x.keynum?'<span class="keytag">KEY #</span>':''}</div>
       <div class="row2">${esc(x.road)} at ${esc(x.home)} &nbsp;•&nbsp; pool # ${x.pool_line>0?'+':''}${x.pool_line.toFixed(1)} | market ${x.market_line>0?'+':''}${x.market_line.toFixed(1)}</div>
       <div class="row3">${esc(x.why)}</div>
-      ${scoreHtml(x)}
+      ${scoreHtml(x,gradeFC(x))}
     </div>`).join('');
 }
 
