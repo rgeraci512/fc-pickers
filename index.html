@@ -15,51 +15,72 @@
 <link rel="icon" href="icon-192.png">
 <style>
   :root{
-    --navy:#1F3864; --purple:#5B2C6F; --bg:#F4F6F8; --ink:#1a1d21;
-    --strong:#1E7B34; --lean:#2E74B5; --slim:#8A8F98; --key:#B02418;
+    --navy:#1F3864; --purple:#5B2C6F; --green:#1B5E3A; --bg:#F4F6F8; --ink:#1a1d21;
+    --strong:#1E7B34; --lean:#2E74B5; --slim:#8A8F98; --key:#B02418; --amber:#B8860B;
+    --accent:var(--navy);
   }
   *{box-sizing:border-box}
   body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:var(--bg);color:var(--ink);
        padding-top:env(safe-area-inset-top)}
-  header{background:var(--navy);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 12px;
+  body.tg{--accent:var(--purple)} body.all{--accent:var(--green)}
+  header{background:var(--accent);color:#fff;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;
          position:sticky;top:0;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.25)}
-  header h1{margin:0;font-size:20px;display:flex;align-items:center;gap:8px}
-  header .sub{opacity:.85;font-size:12px;margin-top:4px}
-  #refresh{margin-left:auto;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;
-           padding:6px 12px;font-size:13px;font-weight:600}
-  #refresh:active{background:rgba(255,255,255,.3)}
-  .chips{display:flex;gap:8px;padding:12px 12px 2px;overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .chip{border:1px solid #c9d0d8;background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;
+  header h1{margin:0;font-size:19px;display:flex;align-items:center;gap:8px}
+  header .sub{opacity:.85;font-size:12px;margin-top:3px}
+  #refresh,#bell{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;
+           padding:6px 10px;font-size:13px;font-weight:600}
+  #refresh{margin-left:auto} #bell{margin-left:6px}
+  #refresh:active,#bell:active{background:rgba(255,255,255,.3)}
+  /* search */
+  .searchwrap{position:relative;margin-top:9px}
+  input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+  #search{width:100%;border:none;border-radius:10px;padding:9px 34px 9px 34px;font-size:15px;
+          background:rgba(255,255,255,.95);color:var(--ink);outline:none}
+  .searchwrap .ico{position:absolute;left:11px;top:9px;font-size:15px;opacity:.6}
+  #clear{position:absolute;right:6px;top:5px;border:none;background:#dde3ea;color:#333;border-radius:50%;
+         width:24px;height:24px;font-size:14px;display:none}
+  /* tabs */
+  #tabs{display:flex;margin:10px 12px 0;border-radius:10px;overflow:hidden;border:1px solid #c9d0d8;background:#fff}
+  #tabs button{flex:1;border:none;background:#fff;padding:10px 0;font-size:13px;font-weight:700;color:#666}
+  #tabs button.on{background:var(--accent);color:#fff}
+  #tabs button small{display:block;font-size:10px;font-weight:600;opacity:.75}
+  /* record board */
+  .board{background:#fff;margin:10px 12px 0;border-radius:10px;padding:8px 12px;font-size:13px;
+         box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid var(--accent)}
+  .board table{width:100%;border-collapse:collapse}
+  .board td{padding:3px 0;vertical-align:top}
+  .board td.l{color:#555;font-weight:600;white-space:nowrap;padding-right:8px}
+  .board tr.me td{color:var(--ink);font-weight:800}
+  .board .std{color:#555;font-size:12px;margin-top:4px}
+  .chips{display:flex;gap:8px;padding:10px 12px 2px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .chip{border:1px solid #c9d0d8;background:#fff;border-radius:999px;padding:6px 13px;font-size:13px;
         font-weight:600;color:#444;white-space:nowrap}
-  .chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
-  .summary{background:#fff;margin:12px;border-radius:10px;padding:12px 14px;font-size:14px;
+  .chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .summary{background:#fff;margin:10px 12px;border-radius:10px;padding:10px 14px;font-size:13px;
            box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .summary.alert{background:#FFF3CD;border-left:4px solid var(--amber)}
   .card{background:#fff;margin:10px 12px;border-radius:10px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
   .badge{color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;margin-right:8px}
-  .keytag{background:var(--key);color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;margin-left:6px}
+  .tag{border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:6px;color:#fff}
+  .tag.fc{background:var(--navy)} .tag.tgp{background:var(--purple)} .tag.key{background:var(--key);font-size:11px}
   .pick{font-weight:700;font-size:16px}
   .row1{display:flex;align-items:center;flex-wrap:wrap}
   .row2{color:#555;font-size:12px;margin-top:5px}
   .row3{color:#777;font-size:12px;margin-top:2px;font-style:italic}
+  .site{margin-top:6px;font-size:12px;font-weight:700;border-radius:6px;padding:4px 8px;display:inline-block}
+  .site.ok{background:#E3F4E8;color:var(--strong)} .site.diff{background:#FFF3CD;color:#7A5C00}
+  .site.miss{background:#FBE5E2;color:var(--key)}
   footer{color:#888;font-size:11px;padding:14px 16px calc(24px + env(safe-area-inset-bottom))}
   #offline{display:none;background:#7A5C00;color:#fff;font-size:12px;text-align:center;padding:6px}
   #empty{text-align:center;color:#777;padding:40px 20px;font-size:14px}
-  /* pool switcher */
-  #pooltabs{display:none;gap:0;margin:10px 12px 0;border-radius:10px;overflow:hidden;
-            border:1px solid #c9d0d8;background:#fff}
-  #pooltabs button{flex:1;border:none;background:#fff;padding:10px 0;font-size:14px;font-weight:700;color:#666}
-  #pooltabs button.on{background:var(--navy);color:#fff}
-  body.tg #pooltabs button.on{background:var(--purple)}
-  body.tg header{background:var(--purple)}
-  /* tailgate confidence cards */
-  .warn{background:#FFF3CD;border-left:4px solid #B8860B;margin:12px;border-radius:8px;padding:10px 14px;font-size:13px}
+  #empty button{margin-top:10px;border:none;background:var(--accent);color:#fff;border-radius:8px;padding:8px 14px;font-weight:700}
+  /* tailgate cards */
   .tcard{background:#fff;margin:10px 12px;border-radius:10px;padding:10px 12px;display:flex;
          align-items:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}
   .confbox{color:#fff;font-size:24px;font-weight:800;border-radius:10px;min-width:52px;text-align:center;
-           padding:10px 0;margin-right:14px}
+           padding:10px 0;margin-right:14px;flex-shrink:0}
+  .confbox.skip{background:#ccc;color:#666;font-size:12px;padding:16px 0}
   /* live scores + close-game alerts */
-  #bell{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;
-        padding:6px 10px;font-size:13px;font-weight:600;margin-left:8px}
   .scoreline{margin-top:6px;font-size:13px;font-weight:600;color:#555}
   .scoreline .liv{color:#B02418}
   .closebadge{background:var(--key);color:#fff;border-radius:4px;padding:1px 7px;font-size:11px;
@@ -68,9 +89,6 @@
   #gamealert{display:none;background:var(--key);color:#fff;font-size:13px;font-weight:600;
              padding:8px 14px;text-align:center}
   .card.closegame,.tcard.closegame{box-shadow:0 0 0 2px var(--key), 0 1px 3px rgba(0,0,0,.15)}
-  .recbar{background:#fff;margin:12px 12px 0;border-radius:10px;padding:11px 14px;font-size:14px;
-          box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid var(--navy);line-height:1.5}
-  body.tg .recbar{border-left-color:var(--purple)}
   /* lock screen */
   #lock{position:fixed;inset:0;background:var(--navy);z-index:100;display:flex;flex-direction:column;
         align-items:center;justify-content:center;color:#fff;padding:24px}
@@ -99,31 +117,33 @@
 <header>
   <h1>🏈 <span id="appname">FC PICKERS</span> <button id="refresh">↻ Refresh</button><button id="bell" title="Close-game alerts">🔔</button></h1>
   <div class="sub" id="subline">Loading picks…</div>
+  <div class="searchwrap"><span class="ico">🔍</span>
+    <input id="search" type="search" placeholder="Find a team…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button id="clear">×</button></div>
 </header>
 <div id="offline">Offline — showing your last saved pick sheet</div>
 <div id="gamealert"></div>
-<div id="pooltabs"></div>
-<div id="warn" class="warn" style="display:none"></div>
+<div id="tabs"></div>
+<div id="board"></div>
 <div class="chips" id="chips"></div>
-<div id="rec"></div>
 <div class="summary" id="summary" style="display:none"></div>
 <div id="cards"></div>
 <div id="empty" style="display:none">No picks loaded yet. Tap Refresh once this week's sheet is built.</div>
 <footer>System: pool-number vs market movement first, pro-consensus fallback, key-number pricing.
 Validated on 2021–2025: 51.6–56.0% ATS vs posted numbers every season.
+Games outside the pools are graded against the market opening number.
 The edge is the season, not the single game.</footer>
 <script>
 const BADGE={STRONG:'var(--strong)',LEAN:'var(--lean)',SLIM:'var(--slim)'};
-const FILTERS=['All','STRONG','LEAN','KEY #'];
-let data=null, filter='All', activePool='fc';
+const TABS=[{id:'fc',name:'FC PICKERS',cls:''},{id:'tailgate',name:'TAILGATE',cls:'tg'},{id:'all',name:'ALL GAMES',cls:'all'}];
+const FILTERS={fc:['All','STRONG','LEAN','KEY #','Not entered'],all:['All','Pool games','Not in a pool','STRONG','LEAN']};
+let data=null, tab='fc', filter='All', query='';
 
-function pools(){
-  if(!data) return [];
-  if(data.pools) return data.pools;
-  return [{id:'fc',name:'FC PICKERS',type:'ats',pool_source:data.pool_source,
-           tiebreaker:data.tiebreaker,games:data.games}]; // legacy v1 payload
-}
-function currentPool(){return pools().find(p=>p.id===activePool)||pools()[0];}
+// ---- payload accessors (v3) ----
+function games(){return (data&&data.games)||[];}
+function fcGames(){return games().filter(g=>g.pools.includes('fc'));}
+function tgGames(){return (data&&data.tailgate)||[];}
+function tgMatch(x){return {home:x.venue==='home'?x.pick:x.against, road:x.venue==='home'?x.against:x.pick, id:x.id};}
 
 function tgTier(p){
   if(p>=0.85)return{c:'var(--strong)',t:'LOCK IT IN'};
@@ -140,16 +160,18 @@ const ALIAS={'mississippi':'ole miss','southern mississippi':'southern miss',
   'louisiana monroe':'ul monroe','massachusetts':'umass','florida intl':'florida international',
   'central florida':'ucf','connecticut':'uconn','brigham young':'byu',
   'southern california':'usc','pittsburgh':'pitt','louisiana lafayette':'louisiana',
-  'texas christian':'tcu','southern methodist':'smu','miami fl':'miami','miami oh':'miami oh',
-  'n c state':'nc state','north carolina state':'nc state'};
+  'texas christian':'tcu','southern methodist':'smu','miami fl':'miami','miami fla':'miami','miami florida':'miami',
+  'miami oh':'miami oh','miami ohio':'miami oh','n c state':'nc state','north carolina state':'nc state',
+  'kent':'kent state','troy state':'troy','sam houston state':'sam houston','west va':'west virginia',
+  'appalachian state':'app state','san josé state':'san jose state'};
 function norm(s){
-  s=String(s).toLowerCase().replace(/[.&'()]/g,'').replace(/-/g,' ').replace(/\s+/g,' ').trim();
+  s=String(s).toLowerCase().replace(/é/g,'e').replace(/[.&'’()]/g,'').replace(/-/g,' ').replace(/\s+/g,' ').trim();
   s=s.replace(/\bst\b/g,'state').replace(/\bintl\b/g,'international').replace(/\bmich\b/g,'michigan')
      .replace(/\bill\b/g,'illinois').replace(/\btenn\b/g,'tennessee').replace(/\bfla\b/g,'florida')
-     .replace(/\bwash\b/g,'washington').replace(/\bcaro\b/g,'carolina');
+     .replace(/\bwash\b/g,'washington').replace(/\bcaro\b/g,'carolina').replace(/\bva\b/g,'virginia');
   return ALIAS[s]||s;
 }
-function gkey(g){return norm(g.road)+'@'+norm(g.home);}
+function gkey(g){return g.id||(norm(g.road)+'@'+norm(g.home));}
 function clockSecs(c){const m=String(c||'').match(/(\d+):(\d+)/);return m?(+m[1]*60)+(+m[2]):0;}
 
 function closeness(sc){
@@ -187,14 +209,14 @@ async function updateScores(){
   }
   liveScores={};
   const closeNow=[];
-  for(const p of pools())for(const g of (p.games||[])){
+  for(const g of games()){
     const sc=idx[gkey(g)]; if(!sc)continue;
     liveScores[gkey(g)]=sc;
     const why=closeness(sc);
     if(why){
       sc.close=true;
       const line=`${sc.an} ${sc.as}–${sc.hs} ${sc.hn}`;
-      if(!closeNow.some(c=>c.line===line))closeNow.push({line,why,sc});
+      if(!closeNow.some(c=>c.line===line))closeNow.push({line,why,sc,g});
     }
   }
   const bar=document.getElementById('gamealert');
@@ -203,7 +225,8 @@ async function updateScores(){
     bar.textContent='🚨 CLOSE GAME: '+closeNow.map(c=>`${c.line} (${c.sc.detail||c.why})`).join('  •  ');
   }else bar.style.display='none';
   for(const c of closeNow){
-    const id=c.line.replace(/\d+/g,'');    // one alert per matchup, not per score change
+    if(!c.g.pools.length)continue;          // only ping for pool games
+    const id=c.line.replace(/\d+/g,'');
     if(alerted.has(id))continue;
     alerted.add(id);
     notify('🚨 Close game alert',`${c.line} — ${c.sc.detail||c.why}. One to watch!`);
@@ -220,43 +243,48 @@ async function notify(title,body){
   }catch(e){}
 }
 
-// ---- live grading + record ----
-function gradeFC(g){                       // ATS vs pool number
+// ---- live grading + records ----
+function gradeATS(g){                      // ATS vs pool number (or opening number outside the pools)
   const sc=liveScores[gkey(g)]; if(!sc||sc.state!=='post')return null;
-  const hs=sc.flip?sc.as:sc.hs, as=sc.flip?sc.hs:sc.as;   // scores in OUR home/road orientation
+  const hs=sc.flip?sc.as:sc.hs, as=sc.flip?sc.hs:sc.as;
   const margin=hs-as;
   if(margin===g.pool_line)return 'P';
   return (g.pick===g.home)===(margin>g.pool_line)?'W':'L';
 }
 function gradeTG(x){                       // straight up
-  const tg={home:x.venue==='home'?x.pick:x.against, road:x.venue==='home'?x.against:x.pick};
+  const tg=tgMatch(x);
   const sc=liveScores[gkey(tg)]; if(!sc||sc.state!=='post')return null;
   const hs=sc.flip?sc.as:sc.hs, as=sc.flip?sc.hs:sc.as;
   const winner=hs>as?tg.home:tg.road;
   return x.pick===winner?'W':'L';
 }
 function pct(w,l){const n=w+l;return n?Math.round(100*w/n)+'%':'—';}
-function recordHtml(pool){
-  const isTG=pool.type==='confidence';
-  let w=0,l=0,p=0,pts=0,ptsMax=0;
-  for(const g of (pool.games||[])){
-    const r=isTG?gradeTG(g):gradeFC(g);
-    if(isTG){ptsMax+=g.rank; if(r==='W')pts+=g.rank;}
-    if(r==='W')w++;else if(r==='L')l++;else if(r==='P')p++;
-  }
-  const base=pool.record||{};
-  // if the official record already includes this week, use live grades instead (no double count)
-  const bw=(base.weeks&&base.weeks[data.week])||{w:0,l:0,p:0,pts:0};
-  const sw=(base.w||0)-(bw.w||0)+w, sl=(base.l||0)-(bw.l||0)+l, sp=((base.p||0)-(bw.p||0))+p;
-  const parts=[];
-  parts.push(`<b>This week:</b> ${w}–${l}${p?'–'+p:''} (${pct(w,l)})`);
-  parts.push(`<b>Season:</b> ${sw}–${sl}${sp?'–'+sp:''} (${pct(sw,sl)})`);
-  if(isTG&&(w+l+(base.pts||0)))parts.push(`<b>Points:</b> ${pts+(base.pts||0)-(bw.pts||0)}`);
-  let s=`🏆 ${parts.join(' &nbsp;•&nbsp; ')}`;
-  if(pool.standing&&pool.standing.place)
-    s+=`<br>📍 <b>${esc(pool.standing.place)}</b> of ${esc(pool.standing.of||'?')}${pool.standing.as_of?' • '+esc(pool.standing.as_of):''}`;
-  else s+=`<br>📍 Pool standing: posts after the first week is scored.`;
-  return `<div class="recbar">${s}</div>`;
+function tally(list,grader){
+  const t={w:0,l:0,p:0,pts:0};
+  for(const g of list){const r=grader(g);
+    if(r==='W'){t.w++;t.pts+=(g.rank||0);}else if(r==='L')t.l++;else if(r==='P')t.p++;}
+  return t;
+}
+function season(base,live){                // base = official record; subtract its copy of this week, add live grades
+  base=base||{}; const bw=(base.weeks&&base.weeks[data.week])||{};
+  return {w:(base.w||0)-(bw.w||0)+live.w, l:(base.l||0)-(bw.l||0)+live.l,
+          p:(base.p||0)-(bw.p||0)+live.p, pts:(base.pts||0)-(bw.pts||0)+live.pts};
+}
+function rec(t,pts){return `${t.w}–${t.l}${t.p?'–'+t.p:''} <span style="color:#777;font-weight:600">(${pct(t.w,t.l)})</span>${pts?` • ${t.pts} pts`:''}`;}
+function boardHtml(){
+  const R=data.record||{}, S=data.standing||{};
+  const wkFC=tally(fcGames(),gradeATS), wkAll=tally(games(),gradeATS), wkTG=tally(tgGames().filter(x=>x.rank>0),gradeTG);
+  const rows=[
+    {id:'fc',l:'FC PICKERS pool',wk:rec(wkFC),sn:rec(season(R.fc,wkFC))},
+    {id:'tailgate',l:'Tailgate pool',wk:rec(wkTG,true),sn:rec(season(R.tailgate,wkTG),true)},
+    {id:'all',l:'All games tracked',wk:rec(wkAll),sn:rec(season(R.all,wkAll))},
+  ];
+  let h='<table><tr><td class="l"></td><td class="l">This week</td><td class="l">Season</td></tr>'+
+    rows.map(r=>`<tr class="${r.id===tab?'me':''}"><td class="l">${r.l}</td><td>${r.wk}</td><td>${r.sn}</td></tr>`).join('')+'</table>';
+  const st=S[tab==='all'?'fc':tab];
+  if(st&&st.place)h+=`<div class="std">📍 <b>${esc(st.place)}</b> of ${esc(st.of||'?')}${st.as_of?' • '+esc(st.as_of):''}</div>`;
+  else if(tab!=='all')h+=`<div class="std">📍 Pool standing posts after the first week is scored.</div>`;
+  return `<div class="board">${h}</div>`;
 }
 
 function scoreHtml(g,grade){
@@ -283,83 +311,127 @@ document.getElementById('bell').onclick=async()=>{
   if(typeof Notification==='undefined')return;
   if(Notification.permission!=='granted')await Notification.requestPermission();
   updateBell();
-  if(Notification.permission==='granted')notify('Alerts on','You\'ll get a ping when a game gets close.');
+  if(Notification.permission==='granted')notify('Alerts on','You\'ll get a ping when a pool game gets close.');
 };
 setInterval(()=>{if(!document.hidden&&data)updateScores();},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&data)updateScores();});
 // ===================================================================
 
 function esc(s){const d=document.createElement('div');d.textContent=String(s);return d.innerHTML;}
-
 function lineDisp(g){
-  const homePick = g.pick===g.home, pl=g.pool_line;
-  const v = homePick ? -pl : pl;
+  const v = g.pick===g.home ? -g.pool_line : g.pool_line;
   return (v>0?'+':'-')+Math.abs(v).toFixed(1);
+}
+function matches(names){
+  if(!query)return true;
+  const q=norm(query); return names.some(n=>norm(n).includes(q)||String(n).toLowerCase().includes(query.toLowerCase()));
+}
+function poolTags(g){return (g.pools.includes('fc')?'<span class="tag fc">FC</span>':'')+(g.pools.includes('tailgate')?'<span class="tag tgp">TAILGATE</span>':'');}
+function siteHtml(g){
+  if(!g.pools.includes('fc'))return '';
+  if(!g.entered)return '<div class="site miss">○ NOT ENTERED on Splash yet</div>';
+  if(norm(g.entered)===norm(g.pick))return `<div class="site ok">✔ ON SPLASH: ${esc(g.entered)}</div>`;
+  return `<div class="site diff">⚠ SPLASH HAS ${esc(g.entered)} — system likes ${esc(g.pick)}</div>`;
+}
+function atsCard(g,showPools){
+  return `<div class="card${isClose(g)?' closegame':''}">
+    <div class="row1"><span class="badge" style="background:${BADGE[g.strength]}">${g.strength}</span>
+      <span class="pick">${esc(g.pick)} ${lineDisp(g)}</span>${g.keynum?'<span class="tag key">KEY #</span>':''}${showPools?poolTags(g):''}</div>
+    <div class="row2">${esc(g.road)} at ${esc(g.home)}${g.kickoff?' &nbsp;•&nbsp; '+esc(g.kickoff):''}</div>
+    <div class="row2">${g.pools.includes('fc')?'pool #':'opening #'} ${g.pool_line>0?'+':''}${g.pool_line.toFixed(1)} | market now ${g.market_line>0?'+':''}${g.market_line.toFixed(1)}${g.move?` <b style="color:${Math.abs(g.move)>=1?'var(--key)':'#555'}">(moved ${g.move>0?'+':''}${g.move.toFixed(1)})</b>`:''}</div>
+    <div class="row3">${esc(g.why)}</div>
+    ${siteHtml(g)}
+    ${scoreHtml(g,gradeATS(g))}
+  </div>`;
 }
 
 function render(){
-  const ps=pools(), pool=currentPool();
-  const tabs=document.getElementById('pooltabs');
-  if(ps.length>1){
-    tabs.style.display='flex';
-    tabs.innerHTML=ps.map(p=>`<button class="${p.id===pool.id?'on':''}" data-p="${p.id}">${esc(p.name)}</button>`).join('');
-    tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>{activePool=b.dataset.p;render();});
-  }else tabs.style.display='none';
-  const isTG=pool&&pool.type==='confidence';
-  document.body.classList.toggle('tg',isTG);
-  document.querySelector('meta[name=theme-color]').content=isTG?'#5B2C6F':'#1F3864';
-  document.getElementById('appname').textContent=isTG?'TAILGATE SPECIAL':'FC PICKERS';
+  const T=TABS.find(t=>t.id===tab);
+  document.body.className=T.cls;
+  document.querySelector('meta[name=theme-color]').content=tab==='tailgate'?'#5B2C6F':tab==='all'?'#1B5E3A':'#1F3864';
+  document.getElementById('appname').textContent=tab==='tailgate'?'TAILGATE SPECIAL':tab==='all'?'ALL GAMES':'FC PICKERS';
+  const tabs=document.getElementById('tabs');
+  const counts={fc:fcGames().length,tailgate:tgGames().filter(x=>x.rank>0).length,all:games().length};
+  tabs.innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" data-t="${t.id}">${t.name}<small>${counts[t.id]} ${t.id==='tailgate'?'picks':'games'}</small></button>`).join('');
+  tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;filter='All';render();});
   const cards=document.getElementById('cards'), sum=document.getElementById('summary'),
         empty=document.getElementById('empty'), sub=document.getElementById('subline'),
-        warn=document.getElementById('warn'), chips=document.getElementById('chips'),
-        rec=document.getElementById('rec');
-  if(!pool||!pool.games||!pool.games.length){cards.innerHTML='';sum.style.display='none';
-    chips.style.display='none';warn.style.display='none';rec.innerHTML='';empty.style.display='block';return;}
+        chips=document.getElementById('chips'), board=document.getElementById('board');
+  if(!data||!games().length){cards.innerHTML='';sum.style.display='none';chips.style.display='none';
+    board.innerHTML='';empty.style.display='block';empty.innerHTML='No picks loaded yet. Tap Refresh once this week\'s sheet is built.';return;}
   empty.style.display='none';
-  rec.innerHTML=recordHtml(pool);
-  if(isTG){
+  board.innerHTML=boardHtml();
+  const lock=(data.lock||{})[tab==='all'?'fc':tab];
+  sub.textContent=`${data.week} • built ${data.generated}${lock?' • locks '+lock:''}`;
+  let html='', shown=0, other=0;
+
+  if(tab==='tailgate'){
     chips.style.display='none';
-    warn.style.display='block';
-    warn.innerHTML=`<b>⚠ ${esc(pool.deadline_note||'One deadline for the whole sheet — locks mid-week.')}</b>
-      &nbsp;<b>Never use the site's autopick</b> — it forfeits tiebreakers.`;
-    const total=pool.games.reduce((s,x)=>s+x.rank,0);
-    sub.textContent=`${data.week}${pool.demo?' • PREVIEW — real slate loads when the pool posts it':''}`;
-    sum.style.display='block';
-    sum.innerHTML=`<b>${pool.games.length} games, ${total} points possible.</b> Straight-up picks —
-      big number = most points if they win. Coin-flips belong at the bottom:
-      losses down there cost 1–3 points instead of 18–20.`;
-    cards.innerHTML=pool.games.map(x=>{const t=tgTier(x.win_prob);
-      const tg={home:x.venue==='home'?x.pick:x.against, road:x.venue==='home'?x.against:x.pick};
-      return `
-      <div class="tcard${isClose(tg)?' closegame':''}">
-        <div class="confbox" style="background:${t.c}">${x.rank}</div>
-        <div><div class="pick">${esc(x.pick)}</div>
-        <div class="row2">over ${esc(x.against)} (${x.venue==='home'?'home':'on the road'})
-          &nbsp;•&nbsp; ${Math.min(99,Math.round(x.win_prob*100))}% to win &nbsp;•&nbsp; ${t.t}</div>
-        ${scoreHtml(tg,gradeTG(x))}</div>
-      </div>`;}).join('');
-    return;
+    const tg=tgGames(), picks=tg.filter(x=>x.rank>0), total=picks.reduce((s,x)=>s+x.rank,0);
+    const diffs=picks.filter(x=>x.entered_pick&&(norm(x.entered_pick)!==norm(x.pick)||x.entered_rank!==x.rank));
+    const missing=picks.filter(x=>!x.entered_pick).length;
+    sum.style.display='block'; sum.className='summary'+(diffs.length||missing?' alert':'');
+    sum.innerHTML=`<b>${picks.length} picks, ${total} points possible.</b> Straight-up — big number = most points if they win.`+
+      (missing?`<br><b>⚠ ${missing} pick${missing>1?'s':''} not entered on Splash.</b>`:'')+
+      (diffs.length?`<br><b>⚠ ${diffs.length} card${diffs.length>1?'s':''} differ from what's on Splash</b> (site's pick/points shown in amber).`:'')+
+      (!missing&&!diffs.length&&picks.length?'<br>✔ Splash matches the system sheet.':'');
+    const list=tg.filter(x=>matches([x.pick,x.against]));
+    shown=list.length;
+    html=list.map(x=>{const t=tgTier(x.win_prob), m=tgMatch(x);
+      let site='';
+      if(!x.entered_pick)site='<div class="site miss">○ NOT ENTERED on Splash</div>';
+      else if(norm(x.entered_pick)!==norm(x.pick))site=`<div class="site diff">⚠ SPLASH HAS ${esc(x.entered_pick)} (${x.entered_rank} pts) — system likes ${esc(x.pick)}</div>`;
+      else if(x.entered_rank!==x.rank)site=`<div class="site diff">⚠ SPLASH HAS ${x.entered_rank} pts — system says ${x.rank}</div>`;
+      else site=`<div class="site ok">✔ ON SPLASH: ${esc(x.entered_pick)} · ${x.entered_rank} pts</div>`;
+      return `<div class="tcard${isClose(m)?' closegame':''}">
+        <div class="confbox${x.rank?'':' skip'}" style="${x.rank?'background:'+t.c:''}">${x.rank||'SKIP'}</div>
+        <div style="flex:1"><div class="pick">${esc(x.pick)}</div>
+        <div class="row2">over ${esc(x.against)} (${x.venue==='home'?'home':'on the road'})${x.kickoff?' • '+esc(x.kickoff):''}</div>
+        <div class="row2">${Math.min(99,Math.round(x.win_prob*100))}% to win &nbsp;•&nbsp; ${t.t}</div>
+        ${site}${scoreHtml(m,gradeTG(x))}</div></div>`;}).join('');
+    other=query?games().filter(g=>matches([g.road,g.home])).length:0;
+  } else {
+    const F=FILTERS[tab];
+    chips.style.display='flex';
+    chips.innerHTML=F.map(f=>`<button class="chip${f===filter?' on':''}" data-f="${f}">${f}</button>`).join('');
+    chips.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{filter=b.dataset.f;render();});
+    const pool=tab==='fc'?fcGames():games();
+    const sorted=[...pool].sort((a,b)=>b.edge-a.edge);
+    if(tab==='fc'){
+      const e=data.fc_entry||{}; const diffs=pool.filter(g=>g.entered&&norm(g.entered)!==norm(g.pick)).length;
+      const ns=pool.filter(x=>x.strength==='STRONG').length, nl=pool.filter(x=>x.strength==='LEAN').length;
+      sum.style.display='block'; sum.className='summary'+(e.missing||diffs?' alert':'');
+      sum.innerHTML=`<b>${pool.length} pool games</b> — ${ns} strong, ${nl} leans, ${pool.length-ns-nl} coin-flips. Pool numbers from ${esc(data.pool_source||'Splash')}.`+
+        `<br><b>Splash entry: ${e.entered||0} of ${e.total||pool.length} entered${e.missing?` — ${e.missing} MISSING`:''}</b>${diffs?` • ${diffs} entered pick${diffs>1?'s':''} differ from the system`:''}${lock?` • lock ${esc(lock)}`:''}`;
+    } else {
+      const np=pool.filter(g=>g.pools.length).length;
+      sum.style.display='block'; sum.className='summary';
+      sum.innerHTML=`<b>${pool.length} games tracked this week</b> — ${np} in a pool, ${pool.length-np} outside the pools (graded vs the opening number, so the season total shows how the system does on everything, not just pool games).`;
+    }
+    const list=sorted.filter(g=>{
+      if(filter==='STRONG'||filter==='LEAN')return g.strength===filter;
+      if(filter==='KEY #')return g.keynum;
+      if(filter==='Not entered')return !g.entered;
+      if(filter==='Pool games')return g.pools.length>0;
+      if(filter==='Not in a pool')return g.pools.length===0;
+      return true;}).filter(g=>matches([g.road,g.home]));
+    shown=list.length;
+    html=list.map(g=>atsCard(g,tab==='all')).join('');
+    if(query&&tab==='fc')other=games().filter(g=>!g.pools.includes('fc')&&matches([g.road,g.home])).length;
   }
-  warn.style.display='none';
-  chips.style.display='flex';
-  chips.innerHTML=FILTERS.map(f=>`<button class="chip${f===filter?' on':''}" data-f="${f}">${f}</button>`).join('');
-  chips.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{filter=b.dataset.f;render();});
-  sub.textContent=`${data.week} • generated ${data.generated} • pool #s: ${pool.pool_source}`;
-  const g=pool.games, ns=g.filter(x=>x.strength==='STRONG').length, nl=g.filter(x=>x.strength==='LEAN').length;
-  sum.style.display='block';
-  sum.innerHTML=`<b>${g.length} games</b> — ${ns} strong plays, ${nl} leans, ${g.length-ns-nl} coin-flips.
-    Ordered by edge. <b>KEY #</b> marks games near 3 or 7 where the half point matters most.
-    <br><b>Tiebreaker:</b> ${esc(pool.tiebreaker||'staged automatically once the designated game posts.')}`;
-  const shown=g.filter(x=>filter==='All'||(filter==='KEY #'?x.keynum:x.strength===filter));
-  cards.innerHTML=shown.map(x=>`
-    <div class="card${isClose(x)?' closegame':''}">
-      <div class="row1"><span class="badge" style="background:${BADGE[x.strength]}">${x.strength}</span>
-        <span class="pick">${esc(x.pick)} ${lineDisp(x)}</span>${x.keynum?'<span class="keytag">KEY #</span>':''}</div>
-      <div class="row2">${esc(x.road)} at ${esc(x.home)} &nbsp;•&nbsp; pool # ${x.pool_line>0?'+':''}${x.pool_line.toFixed(1)} | market ${x.market_line>0?'+':''}${x.market_line.toFixed(1)}</div>
-      <div class="row3">${esc(x.why)}</div>
-      ${scoreHtml(x,gradeFC(x))}
-    </div>`).join('');
+  cards.innerHTML=html;
+  if(!shown){
+    empty.style.display='block';
+    empty.innerHTML=query?`No match for “${esc(query)}” on this tab.`+(other?`<br><button id="gotoall">See ${other} in ALL GAMES</button>`:'')
+                         :'Nothing matches this filter.';
+    const b=document.getElementById('gotoall'); if(b)b.onclick=()=>{tab='all';filter='All';render();};
+  }
 }
+
+// ---- search ----
+const sIn=document.getElementById('search'), sClr=document.getElementById('clear');
+sIn.addEventListener('input',()=>{query=sIn.value.trim();sClr.style.display=query?'block':'none';render();});
+sClr.onclick=()=>{sIn.value='';query='';sClr.style.display='none';render();sIn.blur();};
 
 // ---- crypto: AES-256-GCM, key = PBKDF2-SHA256(passcode, salt, iter) ----
 const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
@@ -369,7 +441,16 @@ async function decrypt(env, pass){
     {name:'PBKDF2',salt:b64d(env.salt),iterations:env.iter,hash:'SHA-256'},
     km,{name:'AES-GCM',length:256},false,['decrypt']);
   const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(env.iv)},key,b64d(env.ct));
-  return JSON.parse(new TextDecoder().decode(pt));
+  return upgrade(JSON.parse(new TextDecoder().decode(pt)));
+}
+function upgrade(d){                       // older payloads (v1/v2) still open
+  if(d.app_version>=3)return d;
+  const pools=d.pools||[{id:'fc',games:d.games,pool_source:d.pool_source}];
+  const fc=pools.find(p=>p.id==='fc')||{games:[]}, tg=pools.find(p=>p.id==='tailgate')||{games:[]};
+  return {app_version:3,week:d.week,generated:d.generated,pool_source:fc.pool_source,lock:{},
+    record:{fc:fc.record,tailgate:tg.record,all:{}},standing:{fc:fc.standing,tailgate:tg.standing},
+    games:(fc.games||[]).map(g=>({...g,pools:['fc'],kickoff:'',entered:''})),
+    tailgate:(tg.games||[]).map(x=>({...x,entered_pick:'',entered_rank:null})),fc_entry:{}};
 }
 
 async function fetchEnv(fresh){
@@ -377,7 +458,6 @@ async function fetchEnv(fresh){
   if(!r.ok) throw new Error('fetch failed');
   return r.json();
 }
-
 function savedPass(){try{return localStorage.getItem('pc')||'';}catch(e){return '';}}
 
 async function load(fresh){
@@ -397,19 +477,15 @@ async function load(fresh){
   }
   render();
 }
-
 function showLock(msg){
   document.getElementById('lock').style.display='flex';
   document.getElementById('lockerr').textContent=msg||'';
   setTimeout(()=>document.getElementById('pc').focus(),50);
 }
 function hideLock(){document.getElementById('lock').style.display='none';}
-
 async function tryUnlock(){
-  const inp=document.getElementById('pc'), err=document.getElementById('lockerr'),
-        btn=document.getElementById('unlock');
-  const pass=inp.value.trim();
-  if(!pass) return;
+  const inp=document.getElementById('pc'), err=document.getElementById('lockerr'), btn=document.getElementById('unlock');
+  const pass=inp.value.trim(); if(!pass) return;
   btn.textContent='…'; err.textContent='';
   try{
     const env=await fetchEnv(false);
