@@ -118,7 +118,7 @@
   <h1>🏈 <span id="appname">FC PICKERS</span> <button id="refresh">↻ Refresh</button><button id="bell" title="Close-game alerts">🔔</button></h1>
   <div class="sub" id="subline">Loading picks…</div>
   <div class="searchwrap"><span class="ico">🔍</span>
-    <input id="search" type="search" placeholder="Team, or: live · wins · losses · final · close" autocomplete="off" autocorrect="off" spellcheck="false">
+    <input id="search" type="search" placeholder="Team, or: live · upcoming · wins · losses · final" autocomplete="off" autocorrect="off" spellcheck="false">
     <button id="clear">×</button></div>
 </header>
 <div id="offline">Offline — showing your last saved pick sheet</div>
@@ -329,7 +329,7 @@ const KEYWORDS=[
   {re:/^(l|loss|losses|lost|losers|losing)$/,test:(m,sc,gr)=>gr==='L',label:'losses'},
   {re:/^(push|pushes|pushed|tie|ties)$/,test:(m,sc,gr)=>gr==='P',label:'pushes'},
   {re:/^(final|finals|finished|done|over|completed|results?|scores?)$/,test:(m,sc)=>sc&&sc.state==='post',label:'finals'},
-  {re:/^(upcoming|not started|later|pregame|pending|to ?play)$/,test:(m,sc)=>!sc||sc.state==='pre',label:'not started'},
+  {re:/^(up ?coming( games?)?|next( games?| up)?|not (yet )?played|unplayed|not started|remaining|future|later|pregame|pending|(yet )?to ?play|coming up|schedule|scheduled)$/,test:(m,sc)=>!sc||sc.state==='pre',label:'upcoming games',sortKick:true},
   {re:/^(close|close games?|tight|nail ?biters?)$/,test:(m,sc)=>!!(sc&&sc.close),label:'close games'},
   {re:/^(not entered|missing|unentered|need picks?)$/,test:(m)=>m.g&&m.g.pools.includes('fc')&&!m.g.entered,label:'not entered'},
   {re:/^(strong|strong plays?)$/,test:(m)=>m.g&&m.g.strength==='STRONG',label:'STRONG'},
@@ -337,6 +337,9 @@ const KEYWORDS=[
   {re:/^(key|key #?|key numbers?)$/,test:(m)=>m.g&&m.g.keynum,label:'key numbers'},
   {re:/^(pool|pool games?|in pool)$/,test:(m)=>m.g&&m.g.pools.length>0,label:'pool games'},
 ];
+const MON={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+function kickTime(k){const m=String(k||'').match(/([A-Za-z]{3})\s+(\d{1,2}).*?(\d{1,2}):(\d{2})\s*(AM|PM)/i);if(!m)return 9e15;
+  let h=+m[3]%12+(m[5].toUpperCase()==='PM'?12:0);const y=new Date().getFullYear();return new Date(y,MON[m[1].toLowerCase()]||0,+m[2],h,+m[4]).getTime();}
 function keyword(){const q=query.trim().toLowerCase().replace(/[^a-z#? ]/g,'').replace(/\s+/g,' ');return KEYWORDS.find(k=>k.re.test(q))||null;}
 // m = {names:[...], key:gkey, g:game (ATS card) }, grade = 'W'/'L'/'P'/null
 function matches(m,grade){
@@ -395,6 +398,7 @@ function render(){
       (diffs.length?`<br><b>⚠ ${diffs.length} card${diffs.length>1?'s':''} differ from what's on Splash</b> (site's pick/points shown in amber).`:'')+
       (!missing&&!diffs.length&&picks.length?'<br>✔ Splash matches the system sheet.':'');
     const list=tg.filter(x=>matches({names:[x.pick,x.against],key:gkey(tgMatch(x))},gradeTG(x)));
+    if(keyword()&&keyword().sortKick)list.sort((a,b)=>kickTime(a.kickoff)-kickTime(b.kickoff));
     shown=list.length;
     html=list.map(x=>{const t=tgTier(x.win_prob), m=tgMatch(x);
       let site='';
@@ -434,6 +438,7 @@ function render(){
       if(filter==='Pool games')return g.pools.length>0;
       if(filter==='Not in a pool')return g.pools.length===0;
       return true;}).filter(g=>matches({names:[g.road,g.home],key:gkey(g),g},gradeATS(g)));
+    if(keyword()&&keyword().sortKick)list.sort((a,b)=>kickTime(a.kickoff)-kickTime(b.kickoff));
     shown=list.length;
     html=list.map(g=>atsCard(g,tab==='all')).join('');
     if(query&&tab==='fc')other=games().filter(g=>!g.pools.includes('fc')&&matches({names:[g.road,g.home],key:gkey(g),g},gradeATS(g))).length;
