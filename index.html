@@ -118,7 +118,7 @@
   <h1>🏈 <span id="appname">FC PICKERS</span> <button id="refresh">↻ Refresh</button><button id="bell" title="Close-game alerts">🔔</button></h1>
   <div class="sub" id="subline">Loading picks…</div>
   <div class="searchwrap"><span class="ico">🔍</span>
-    <input id="search" type="search" placeholder="Find a team…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <input id="search" type="search" placeholder="Team, or: live · wins · losses · final · close" autocomplete="off" autocorrect="off" spellcheck="false">
     <button id="clear">×</button></div>
 </header>
 <div id="offline">Offline — showing your last saved pick sheet</div>
@@ -322,9 +322,28 @@ function lineDisp(g){
   const v = g.pick===g.home ? -g.pool_line : g.pool_line;
   return (v>0?'+':'-')+Math.abs(v).toFixed(1);
 }
-function matches(names){
+// ---- smart search: team names OR keywords (live / on now / wins / losses / final / push / close / not entered / strong / key) ----
+const KEYWORDS=[
+  {re:/^(live|live games?|on now|now|playing|in progress|in play)$/,test:(m,sc)=>sc&&sc.state==='in',label:'live now'},
+  {re:/^(w|win|wins|won|winners|winning|covered|covers)$/,test:(m,sc,gr)=>gr==='W',label:'wins'},
+  {re:/^(l|loss|losses|lost|losers|losing)$/,test:(m,sc,gr)=>gr==='L',label:'losses'},
+  {re:/^(push|pushes|pushed|tie|ties)$/,test:(m,sc,gr)=>gr==='P',label:'pushes'},
+  {re:/^(final|finals|finished|done|over|completed|results?|scores?)$/,test:(m,sc)=>sc&&sc.state==='post',label:'finals'},
+  {re:/^(upcoming|not started|later|pregame|pending|to ?play)$/,test:(m,sc)=>!sc||sc.state==='pre',label:'not started'},
+  {re:/^(close|close games?|tight|nail ?biters?)$/,test:(m,sc)=>!!(sc&&sc.close),label:'close games'},
+  {re:/^(not entered|missing|unentered|need picks?)$/,test:(m)=>m.g&&m.g.pools.includes('fc')&&!m.g.entered,label:'not entered'},
+  {re:/^(strong|strong plays?)$/,test:(m)=>m.g&&m.g.strength==='STRONG',label:'STRONG'},
+  {re:/^(lean|leans)$/,test:(m)=>m.g&&m.g.strength==='LEAN',label:'LEAN'},
+  {re:/^(key|key #?|key numbers?)$/,test:(m)=>m.g&&m.g.keynum,label:'key numbers'},
+  {re:/^(pool|pool games?|in pool)$/,test:(m)=>m.g&&m.g.pools.length>0,label:'pool games'},
+];
+function keyword(){const q=query.trim().toLowerCase().replace(/[^a-z#? ]/g,'').replace(/\s+/g,' ');return KEYWORDS.find(k=>k.re.test(q))||null;}
+// m = {names:[...], key:gkey, g:game (ATS card) }, grade = 'W'/'L'/'P'/null
+function matches(m,grade){
   if(!query)return true;
-  const q=norm(query); return names.some(n=>norm(n).includes(q)||String(n).toLowerCase().includes(query.toLowerCase()));
+  const k=keyword();
+  if(k)return !!k.test(m,liveScores[m.key],grade);
+  const q=norm(query); return m.names.some(n=>norm(n).includes(q)||String(n).toLowerCase().includes(query.toLowerCase()));
 }
 function poolTags(g){return (g.pools.includes('fc')?'<span class="tag fc">FC</span>':'')+(g.pools.includes('tailgate')?'<span class="tag tgp">TAILGATE</span>':'');}
 function siteHtml(g){
@@ -375,7 +394,7 @@ function render(){
       (missing?`<br><b>⚠ ${missing} pick${missing>1?'s':''} not entered on Splash.</b>`:'')+
       (diffs.length?`<br><b>⚠ ${diffs.length} card${diffs.length>1?'s':''} differ from what's on Splash</b> (site's pick/points shown in amber).`:'')+
       (!missing&&!diffs.length&&picks.length?'<br>✔ Splash matches the system sheet.':'');
-    const list=tg.filter(x=>matches([x.pick,x.against]));
+    const list=tg.filter(x=>matches({names:[x.pick,x.against],key:gkey(tgMatch(x))},gradeTG(x)));
     shown=list.length;
     html=list.map(x=>{const t=tgTier(x.win_prob), m=tgMatch(x);
       let site='';
@@ -389,7 +408,7 @@ function render(){
         <div class="row2">over ${esc(x.against)} (${x.venue==='home'?'home':'on the road'})${x.kickoff?' • '+esc(x.kickoff):''}</div>
         <div class="row2">${Math.min(99,Math.round(x.win_prob*100))}% to win &nbsp;•&nbsp; ${t.t}</div>
         ${site}${scoreHtml(m,gradeTG(x))}</div></div>`;}).join('');
-    other=query?games().filter(g=>matches([g.road,g.home])).length:0;
+    other=query?games().filter(g=>matches({names:[g.road,g.home],key:gkey(g),g},gradeATS(g))).length:0;
   } else {
     const F=FILTERS[tab];
     chips.style.display='flex';
@@ -414,15 +433,20 @@ function render(){
       if(filter==='Not entered')return !g.entered;
       if(filter==='Pool games')return g.pools.length>0;
       if(filter==='Not in a pool')return g.pools.length===0;
-      return true;}).filter(g=>matches([g.road,g.home]));
+      return true;}).filter(g=>matches({names:[g.road,g.home],key:gkey(g),g},gradeATS(g)));
     shown=list.length;
     html=list.map(g=>atsCard(g,tab==='all')).join('');
-    if(query&&tab==='fc')other=games().filter(g=>!g.pools.includes('fc')&&matches([g.road,g.home])).length;
+    if(query&&tab==='fc')other=games().filter(g=>!g.pools.includes('fc')&&matches({names:[g.road,g.home],key:gkey(g),g},gradeATS(g))).length;
   }
   cards.innerHTML=html;
+  const kw2=keyword();
+  if(kw2&&shown){sum.style.display='block';sum.className='summary';
+    sum.innerHTML=`<b>${shown} ${esc(kw2.label)}</b> on this tab${other?` &nbsp;•&nbsp; <a href="#" id="gotoall2">${other} more in ALL GAMES</a>`:''}`;
+    const a=document.getElementById('gotoall2'); if(a)a.onclick=e=>{e.preventDefault();tab='all';filter='All';render();};}
   if(!shown){
     empty.style.display='block';
-    empty.innerHTML=query?`No match for “${esc(query)}” on this tab.`+(other?`<br><button id="gotoall">See ${other} in ALL GAMES</button>`:'')
+    const kw=keyword();
+    empty.innerHTML=query?(kw?`No ${esc(kw.label)} on this tab right now.`:`No match for “${esc(query)}” on this tab.`)+(other?`<br><button id="gotoall">See ${other} in ALL GAMES</button>`:'')
                          :'Nothing matches this filter.';
     const b=document.getElementById('gotoall'); if(b)b.onclick=()=>{tab='all';filter='All';render();};
   }
