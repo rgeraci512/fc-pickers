@@ -300,11 +300,15 @@ function lastWeekHtml(){
   for(const [label,rows] of lists){
     if(!rows||!rows.length) continue;
     const w=rows.filter(r=>r.result==='W').length, l=rows.filter(r=>r.result==='L').length;
-    inner+=`<div style="font-weight:800;margin:8px 0 4px">${esc(label)} — ${w}–${l}</div>`+
-      rows.map(r=>{const win=r.result==='W';
+    const ptsWon=rows.reduce((s,r)=>s+((r.result==='W'&&r.rank)?r.rank:0),0);
+    const hasRanks=rows.some(r=>r.rank);
+    const sorted=hasRanks?[...rows].sort((a,b)=>(b.rank||0)-(a.rank||0)):rows;
+    inner+=`<div style="font-weight:800;margin:8px 0 4px">${esc(label)} — ${w}–${l}${hasRanks?` · ${ptsWon} pts won`:''}</div>`+
+      sorted.map(r=>{const win=r.result==='W';
         const ln=r.pool_line==null?'':' '+((r.pick===r.home?-r.pool_line:r.pool_line)>0?'+':'')+String(r.pick===r.home?-r.pool_line:r.pool_line);
+        const pts=r.rank?` · <b style="color:${win?'var(--strong)':'var(--key)'}">${r.rank} pts</b>`:'';
         return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #eee;font-size:13px">
-          <span><b style="color:${win?'var(--strong)':'var(--key)'}">${win?'✓':'✗'}</b> ${esc(r.pick)}${ln}</span>
+          <span><b style="color:${win?'var(--strong)':'var(--key)'}">${win?'✓':'✗'}</b> ${esc(r.pick)}${ln}${pts}</span>
           <span style="color:#777">${esc(r.road)} ${esc(r.score)} ${esc(r.home)}</span></div>`;}).join('');
   }
   if(!inner) return '';
