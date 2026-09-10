@@ -135,13 +135,14 @@ Games outside the pools are graded against the market opening number.
 The edge is the season, not the single game.</footer>
 <script>
 const BADGE={STRONG:'var(--strong)',LEAN:'var(--lean)',SLIM:'var(--slim)'};
-const TABS=[{id:'fc',name:'FC PICKERS',cls:''},{id:'tailgate',name:'TAILGATE',cls:'tg'},{id:'all',name:'ALL GAMES',cls:'all'}];
-const FILTERS={fc:['All','STRONG','LEAN','KEY #','Not entered'],all:['All','Pool games','Not in a pool','STRONG','LEAN']};
+const TABS=[{id:'fc',name:'FC PICKERS',cls:''},{id:'tailgate',name:'TAILGATE',cls:'tg'},{id:'flips',name:'COIN FLIPS',cls:'fl'},{id:'all',name:'ALL GAMES',cls:'all'}];
+const FILTERS={fc:['All','STRONG','LEAN','KEY #','Not entered'],flips:['All','Pool games','Not in a pool'],all:['All','Pool games','Not in a pool','STRONG','LEAN']};
 let data=null, tab='fc', filter='All', query='';
 
 // ---- payload accessors (v3) ----
 function games(){return (data&&data.games)||[];}
 function fcGames(){return games().filter(g=>g.pools.includes('fc'));}
+function flipGames(){return games().filter(g=>Math.abs((g.home_win_prob||0.5)-0.5)<=0.10||Math.abs(g.pool_line)<=3.5).sort((a,b)=>Math.abs((a.home_win_prob||.5)-.5)-Math.abs((b.home_win_prob||.5)-.5));}
 function tgGames(){return (data&&data.tailgate)||[];}
 function tgMatch(x){return {home:x.venue==='home'?x.pick:x.against, road:x.venue==='home'?x.against:x.pick, id:x.id};}
 
@@ -283,7 +284,7 @@ function boardHtml(){
   ];
   let h='<table><tr><td class="l"></td><td class="l">Last week</td><td class="l">This week</td><td class="l">Season</td></tr>'+
     rows.map(r=>`<tr class="${r.id===tab?'me':''}"><td class="l">${r.l}</td><td>${r.lw}</td><td>${r.wk}</td><td>${r.sn}</td></tr>`).join('')+'</table>';
-  const st=S[tab==='all'?'fc':tab];
+  const st=S[(tab==='all'||tab==='flips')?'fc':tab];
   if(st&&st.place)h+=`<div class="std">📍 <b>${esc(st.place)}</b> of ${esc(st.of||'?')}${st.as_of?' • '+esc(st.as_of):''}</div>`;
   else if(tab!=='all')h+=`<div class="std">📍 Pool standing posts after the first week is scored.</div>`;
   return `<div class="board">${h}</div>`;
@@ -304,7 +305,7 @@ function lastWeekHtml(){
           <span style="color:#777">${esc(r.road)} ${esc(r.score)} ${esc(r.home)}</span></div>`;}).join('');
   }
   if(!inner) return '';
-  return `<details class="board" style="margin-top:8px"><summary style="cursor:pointer;font-weight:800">📋 Last week review — ${esc(LW.week)}</summary>${inner}</details>`;
+  return `<details class="board" open style="margin-top:8px"><summary style="cursor:pointer;font-weight:800">📋 Last week review — ${esc(LW.week)}</summary>${inner}</details>`;
 }
 
 function scoreHtml(g,grade){
@@ -390,10 +391,10 @@ function atsCard(g,showPools){
 function render(){
   const T=TABS.find(t=>t.id===tab);
   document.body.className=T.cls;
-  document.querySelector('meta[name=theme-color]').content=tab==='tailgate'?'#5B2C6F':tab==='all'?'#1B5E3A':'#1F3864';
-  document.getElementById('appname').textContent=tab==='tailgate'?'TAILGATE SPECIAL':tab==='all'?'ALL GAMES':'FC PICKERS';
+  document.querySelector('meta[name=theme-color]').content=tab==='tailgate'?'#5B2C6F':tab==='all'?'#1B5E3A':tab==='flips'?'#7A5C00':'#1F3864';
+  document.getElementById('appname').textContent=tab==='tailgate'?'TAILGATE SPECIAL':tab==='all'?'ALL GAMES':tab==='flips'?'COIN FLIPS':'FC PICKERS';
   const tabs=document.getElementById('tabs');
-  const counts={fc:fcGames().length,tailgate:tgGames().filter(x=>x.rank>0).length,all:games().length};
+  const counts={fc:fcGames().length,tailgate:tgGames().filter(x=>x.rank>0).length,flips:flipGames().length,all:games().length};
   tabs.innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" data-t="${t.id}">${t.name}<small>${counts[t.id]} ${t.id==='tailgate'?'picks':'games'}</small></button>`).join('');
   tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;filter='All';render();});
   const cards=document.getElementById('cards'), sum=document.getElementById('summary'),
@@ -403,7 +404,7 @@ function render(){
     board.innerHTML='';empty.style.display='block';empty.innerHTML='No picks loaded yet. Tap Refresh once this week\'s sheet is built.';return;}
   empty.style.display='none';
   board.innerHTML=boardHtml()+lastWeekHtml();
-  const lock=(data.lock||{})[tab==='all'?'fc':tab];
+  const lock=(data.lock||{})[(tab==='all'||tab==='flips')?'fc':tab];
   sub.textContent=`${data.week} • built ${data.generated}${lock?' • locks '+lock:''}`;
   let html='', shown=0, other=0;
 
@@ -438,7 +439,7 @@ function render(){
     chips.style.display='flex';
     chips.innerHTML=F.map(f=>`<button class="chip${f===filter?' on':''}" data-f="${f}">${f}</button>`).join('');
     chips.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{filter=b.dataset.f;render();});
-    const pool=tab==='fc'?fcGames():games();
+    const pool=tab==='fc'?fcGames():tab==='flips'?flipGames():games();
     const sorted=[...pool].sort((a,b)=>b.edge-a.edge);
     if(tab==='fc'){
       const e=data.fc_entry||{}; const diffs=pool.filter(g=>g.entered&&norm(g.entered)!==norm(g.pick)).length;
@@ -446,6 +447,10 @@ function render(){
       sum.style.display='block'; sum.className='summary'+(e.missing||diffs?' alert':'');
       sum.innerHTML=`<b>${pool.length} pool games</b> — ${ns} strong, ${nl} leans, ${pool.length-ns-nl} coin-flips. Pool numbers from ${esc(data.pool_source||'Splash')}.`+
         `<br><b>Splash entry: ${e.entered||0} of ${e.total||pool.length} entered${e.missing?` — ${e.missing} MISSING`:''}</b>${diffs?` • ${diffs} entered pick${diffs>1?'s':''} differ from the system`:''}${lock?` • lock ${esc(lock)}`:''}`;
+    } else if(tab==='flips'){
+      const np=pool.filter(g=>g.pools.length).length;
+      sum.style.display='block'; sum.className='summary';
+      sum.innerHTML=`<b>${pool.length} coin-flip games</b> — the closest calls of the week (winner under 60/40 or spread within a field goal). ${np} in a pool. Sorted closest first — these are the picks to watch news on, and where a small lean decides it.`;
     } else {
       const np=pool.filter(g=>g.pools.length).length;
       sum.style.display='block'; sum.className='summary';
@@ -460,7 +465,7 @@ function render(){
       return true;}).filter(g=>matches({names:[g.road,g.home],key:gkey(g),g},gradeATS(g)));
     if(keyword()&&keyword().sortKick)list.sort((a,b)=>kickTime(a.kickoff)-kickTime(b.kickoff));
     shown=list.length;
-    html=list.map(g=>atsCard(g,tab==='all')).join('');
+    html=list.map(g=>atsCard(g,tab==='all'||tab==='flips')).join('');
     if(query&&tab==='fc')other=games().filter(g=>!g.pools.includes('fc')&&matches({names:[g.road,g.home],key:gkey(g),g},gradeATS(g))).length;
   }
   cards.innerHTML=html;
