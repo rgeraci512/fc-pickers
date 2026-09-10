@@ -23,6 +23,8 @@
   body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:var(--bg);color:var(--ink);
        padding-top:env(safe-area-inset-top)}
   body.tg{--accent:var(--purple)} body.all{--accent:var(--green)}
+  body.fl{--accent:#7A5C00} body.hi{--accent:#6D4C41}
+  #tabs button{font-size:12px !important}
   header{background:var(--accent);color:#fff;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;
          position:sticky;top:0;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.25)}
   header h1{margin:0;font-size:19px;display:flex;align-items:center;gap:8px}
@@ -135,9 +137,10 @@ Games outside the pools are graded against the market opening number.
 The edge is the season, not the single game.</footer>
 <script>
 const BADGE={STRONG:'var(--strong)',LEAN:'var(--lean)',SLIM:'var(--slim)'};
-const TABS=[{id:'fc',name:'FC PICKERS',cls:''},{id:'tailgate',name:'TAILGATE',cls:'tg'},{id:'flips',name:'COIN FLIPS',cls:'fl'},{id:'all',name:'ALL GAMES',cls:'all'}];
+const TABS=[{id:'fc',name:'FC',cls:''},{id:'tailgate',name:'TAILGATE',cls:'tg'},{id:'flips',name:'FLIPS',cls:'fl'},{id:'all',name:'ALL',cls:'all'},{id:'hist',name:'HISTORY',cls:'hi'}];
 const FILTERS={fc:['All','STRONG','LEAN','KEY #','Not entered'],flips:['All','Pool games','Not in a pool'],all:['All','Pool games','Not in a pool','STRONG','LEAN']};
 let data=null, tab='fc', filter='All', query='';
+let HIST=null, histWeek='', histLoading=false;
 
 // ---- payload accessors (v3) ----
 function games(){return (data&&data.games)||[];}
@@ -284,7 +287,7 @@ function boardHtml(){
   ];
   let h='<table><tr><td class="l"></td><td class="l">Last week</td><td class="l">This week</td><td class="l">Season</td></tr>'+
     rows.map(r=>`<tr class="${r.id===tab?'me':''}"><td class="l">${r.l}</td><td>${r.lw}</td><td>${r.wk}</td><td>${r.sn}</td></tr>`).join('')+'</table>';
-  const st=S[(tab==='all'||tab==='flips')?'fc':tab];
+  const st=S[(tab==='all'||tab==='flips'||tab==='hist')?'fc':tab];
   if(st&&st.place)h+=`<div class="std">📍 <b>${esc(st.place)}</b> of ${esc(st.of||'?')}${st.as_of?' • '+esc(st.as_of):''}</div>`;
   else if(tab!=='all')h+=`<div class="std">📍 Pool standing posts after the first week is scored.</div>`;
   return `<div class="board">${h}</div>`;
@@ -388,18 +391,148 @@ function atsCard(g,showPools){
   </div>`;
 }
 
+// ================= HISTORY TAB =================
+async function loadHist(fresh){
+  if(histLoading)return; histLoading=true;
+  try{
+    const r=await fetch('history.enc'+(fresh?('?t='+Date.now()):''),{cache:fresh?'reload':'default'});
+    if(!r.ok)throw new Error('fetch failed');
+    HIST=await decrypt(await r.json(),savedPass(),true);
+    if(!histWeek&&HIST.weeks&&HIST.weeks.length)histWeek=HIST.weeks[HIST.weeks.length-1].week;
+  }catch(e){
+    HIST={error:String(e).includes('fetch')?'Could not load history — check your connection and tap Refresh.':'History file could not be opened — tap Refresh to retry.'};
+  }
+  histLoading=false; render();
+}
+const HALIAS={uf:'florida',uga:'georgia',fsu:'florida state',osu:'ohio state',psu:'penn state',
+  nd:'notre dame',bama:'alabama',um:'michigan',msu:'michigan state',ou:'oklahoma',
+  vt:'virginia tech',gt:'georgia tech',ku:'kansas',uk:'kentucky',cu:'colorado',wvu:'west virginia'};
+function histQuery(){
+  let q=query.trim();
+  const m=q.match(/\bweeks?\s*(\d+)(?:\s*(?:[-–—]|to|thru|through)\s*(\d+))?\b/i);
+  let lo=null,hi=null;
+  if(m){lo=+m[1];hi=m[2]?+m[2]:lo;q=(q.slice(0,m.index)+' '+q.slice(m.index+m[0].length)).trim();}
+  return {lo,hi,team:q};
+}
+function weekNum(label){const m=String(label).match(/week\s*(\d+)/i);return m?+m[1]:-1;}
+function atsNote(team,a){
+  const w=a[0],l=a[1],p=a[2],n=w+l;
+  if(!n)return 'No games graded against a number yet.';
+  const g=`${w}-${l}${p?'-'+p:''} ATS in ${n+p} game${n+p>1?'s':''}`;
+  const pct=w/n;
+  if(n+p<3)return `${g} — early going, but they've ${w>l?'covered so far':w<l?'come up short of the number so far':'split against the number so far'}.`;
+  if(pct>=0.75)return `${g} — beating the spread nearly every week. The market is underrating ${team} so far.`;
+  if(pct>=0.55)return `${g} — covering more often than not. A live team against the number.`;
+  if(pct>0.45)return `${g} — about even against the spread. The market has ${team} priced right.`;
+  if(pct>=0.25)return `${g} — coming up short of the number more often than not.`;
+  return `${g} — not covering. The market is overrating ${team} so far.`;
+}
+function histRow(r){
+  const win=r.result==='W', push=r.result==='P';
+  const ln=r.line==null?(r.rank?` · ${r.rank} pts`:''):' '+(r.line>0?'+':'')+r.line;
+  const mark=push?'<b style="color:#7A5C00">◦</b>':`<b style="color:${win?'var(--strong)':'var(--key)'}">${win?'✓':'✗'}</b>`;
+  return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #eee;font-size:13px">
+    <span>${mark} ${esc(r.pick)}${esc(ln)}</span>
+    <span style="color:#777">${esc(r.road)} ${esc(r.score)} ${esc(r.home)}</span></div>`;
+}
+function histWeekHtml(w){
+  const secs=[['FC PICKERS pool',w.fc],['Tailgate pool',w.tailgate],['Other games tracked',w.other]];
+  let h='';
+  for(const [label,s] of secs){
+    if(!s||!s.rows||!s.rows.length)continue;
+    h+=`<div class="card"><div style="font-weight:800;margin-bottom:4px">${esc(label)} — ${esc(s.rec)}</div>`+s.rows.map(histRow).join('')+'</div>';
+  }
+  return h||'<div class="card">Nothing was tracked that week.</div>';
+}
+function histTeamHtml(name,t,lo,hi){
+  let gs=t.games;
+  if(lo!=null)gs=gs.filter(g=>{const n=weekNum(g.week);return n>=lo&&n<=hi;});
+  if(!gs.length)return `<div class="card"><b>${esc(name)}</b><div class="row3">No games in that week range yet.</div></div>`;
+  const su=[gs.filter(g=>g.su==='W').length,gs.filter(g=>g.su==='L').length];
+  const pf=gs.reduce((s,g)=>s+g.pf,0), pa=gs.reduce((s,g)=>s+g.pa,0);
+  const ats=[gs.filter(g=>g.ats==='W').length,gs.filter(g=>g.ats==='L').length,gs.filter(g=>g.ats==='P').length];
+  const span=lo==null?'Season':(lo===hi?'Week '+lo:`Weeks ${lo}–${hi}`);
+  const rows=gs.map(g=>{
+    const ln=g.line==null?'':' '+(g.line>0?'+':'')+g.line;
+    const win=g.su==='W';
+    const pickBit=g.picked?` · <span style="color:${g.pick_result==='W'?'var(--strong)':g.pick_result==='L'?'var(--key)':'#7A5C00'};font-weight:700">we picked ${g.pick_result==='W'?'✓':g.pick_result==='L'?'✗':'push'}</span>`:'';
+    return `<div style="padding:4px 0;border-bottom:1px solid #eee;font-size:13px">
+      <b style="color:${win?'var(--strong)':'var(--key)'}">${win?'W':'L'}</b> ${g.pf}–${g.pa}
+      ${g.venue==='home'?'vs':'at'} ${esc(g.opp)} <span style="color:#777">(${esc(g.week)}${esc(ln)})</span>
+      · ATS <b style="color:${g.ats==='W'?'var(--strong)':g.ats==='L'?'var(--key)':'#7A5C00'}">${esc(g.ats)}</b>${pickBit}</div>`;}).join('');
+  return `<div class="card">
+    <div style="font-weight:800;font-size:16px">${esc(name)} <span style="color:#777;font-weight:600;font-size:13px">· ${esc(span)}</span></div>
+    <div class="row2" style="margin:4px 0"><b>${su[0]}-${su[1]}</b> straight up &nbsp;•&nbsp; ${pf} scored / ${pa} allowed</div>
+    ${rows}
+    <div class="row3" style="margin-top:6px">📈 <b>Against the spread:</b> ${esc(atsNote(name,ats))}</div>
+  </div>`;
+}
+function renderHist(cards,sum,empty,sub,chips,board){
+  board.innerHTML=data?boardHtml():'';
+  empty.style.display='none';
+  if(!HIST){
+    if(savedPass())loadHist(false);
+    chips.style.display='none';sum.style.display='none';cards.innerHTML='';
+    sub.textContent='Season history';
+    empty.style.display='block';empty.innerHTML='Loading season history…';return;
+  }
+  if(HIST.error){
+    chips.style.display='none';sum.style.display='none';cards.innerHTML='';
+    sub.textContent='Season history';
+    empty.style.display='block';empty.innerHTML=esc(HIST.error);return;
+  }
+  sub.textContent='Season history'+(HIST.updated?' • updated '+HIST.updated:'');
+  const weeks=HIST.weeks||[];
+  const hq=histQuery();
+  // "week 3" alone = jump the week sheet to that week
+  if(hq.lo!=null&&!hq.team){
+    const w=weeks.find(x=>weekNum(x.week)===hq.lo);
+    if(w)histWeek=w.week;
+  }
+  chips.style.display='flex';
+  chips.innerHTML=[...weeks].reverse().map(w=>{
+    const short=String(w.week).split('—')[0].trim();
+    return `<button class="chip${w.week===histWeek?' on':''}" data-w="${esc(w.week)}">${esc(short)}</button>`;}).join('');
+  chips.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{histWeek=b.dataset.w;sIn.value='';query='';sClr.style.display='none';render();});
+  // team lookup?
+  if(hq.team){
+    const ql=hq.team.toLowerCase(), alias=HALIAS[ql], qn=alias||norm(hq.team);
+    const names=Object.keys(HIST.teams||{}).filter(t=>alias?norm(t)===alias:(norm(t).includes(qn)||t.toLowerCase().includes(ql))).sort();
+    if(names.length){
+      sum.style.display='block';sum.className='summary';
+      sum.innerHTML=`<b>${names.length} team${names.length>1?'s':''}</b> — season record, points, and how they're doing against the spread.`;
+      cards.innerHTML=names.slice(0,8).map(n=>histTeamHtml(n,HIST.teams[n],hq.lo,hq.hi)).join('');
+      return;
+    }
+    sum.style.display='none';cards.innerHTML='';
+    empty.style.display='block';
+    empty.innerHTML=`No team matching “${esc(hq.team)}” in the history yet — only teams in tracked games appear.`;
+    return;
+  }
+  // week sheet view
+  sum.style.display='block';sum.className='summary';
+  sum.innerHTML='Tap a week for that week\'s full pick sheet — or type a team above (try “Florida”, “week 1 Georgia Tech”, or “weeks 1-3 UF”) for its record, points, and spread note.';
+  const w=weeks.find(x=>x.week===histWeek)||weeks[weeks.length-1];
+  cards.innerHTML=w?histWeekHtml(w):'';
+  if(!w){empty.style.display='block';empty.innerHTML='No graded weeks yet — history fills in after the first week is scored.';}
+}
+// ===============================================
+
 function render(){
   const T=TABS.find(t=>t.id===tab);
   document.body.className=T.cls;
-  document.querySelector('meta[name=theme-color]').content=tab==='tailgate'?'#5B2C6F':tab==='all'?'#1B5E3A':tab==='flips'?'#7A5C00':'#1F3864';
-  document.getElementById('appname').textContent=tab==='tailgate'?'TAILGATE SPECIAL':tab==='all'?'ALL GAMES':tab==='flips'?'COIN FLIPS':'FC PICKERS';
+  document.querySelector('meta[name=theme-color]').content=tab==='tailgate'?'#5B2C6F':tab==='all'?'#1B5E3A':tab==='flips'?'#7A5C00':tab==='hist'?'#6D4C41':'#1F3864';
+  document.getElementById('appname').textContent=tab==='tailgate'?'TAILGATE SPECIAL':tab==='all'?'ALL GAMES':tab==='flips'?'COIN FLIPS':tab==='hist'?'HISTORY':'FC PICKERS';
   const tabs=document.getElementById('tabs');
   const counts={fc:fcGames().length,tailgate:tgGames().filter(x=>x.rank>0).length,flips:flipGames().length,all:games().length};
-  tabs.innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" data-t="${t.id}">${t.name}<small>${counts[t.id]} ${t.id==='tailgate'?'picks':'games'}</small></button>`).join('');
+  tabs.innerHTML=TABS.map(t=>{
+    const s=t.id==='hist'?((HIST&&HIST.weeks)?HIST.weeks.length+' weeks':'lookup'):counts[t.id]+' '+(t.id==='tailgate'?'picks':'games');
+    return `<button class="${t.id===tab?'on':''}" data-t="${t.id}">${t.name}<small>${s}</small></button>`;}).join('');
   tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;filter='All';render();});
   const cards=document.getElementById('cards'), sum=document.getElementById('summary'),
         empty=document.getElementById('empty'), sub=document.getElementById('subline'),
         chips=document.getElementById('chips'), board=document.getElementById('board');
+  if(tab==='hist'){renderHist(cards,sum,empty,sub,chips,board);return;}
   if(!data||!games().length){cards.innerHTML='';sum.style.display='none';chips.style.display='none';
     board.innerHTML='';empty.style.display='block';empty.innerHTML='No picks loaded yet. Tap Refresh once this week\'s sheet is built.';return;}
   empty.style.display='none';
@@ -489,13 +622,14 @@ sClr.onclick=()=>{sIn.value='';query='';sClr.style.display='none';render();sIn.b
 
 // ---- crypto: AES-256-GCM, key = PBKDF2-SHA256(passcode, salt, iter) ----
 const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
-async function decrypt(env, pass){
+async function decrypt(env, pass, raw){
   const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
   const key=await crypto.subtle.deriveKey(
     {name:'PBKDF2',salt:b64d(env.salt),iterations:env.iter,hash:'SHA-256'},
     km,{name:'AES-GCM',length:256},false,['decrypt']);
   const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(env.iv)},key,b64d(env.ct));
-  return upgrade(JSON.parse(new TextDecoder().decode(pt)));
+  const obj=JSON.parse(new TextDecoder().decode(pt));
+  return raw?obj:upgrade(obj);
 }
 function upgrade(d){                       // older payloads (v1/v2) still open
   if(d.app_version>=3)return d;
@@ -555,7 +689,7 @@ async function tryUnlock(){
 }
 document.getElementById('unlock').onclick=tryUnlock;
 document.getElementById('pc').addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock();});
-document.getElementById('refresh').onclick=()=>load(true);
+document.getElementById('refresh').onclick=()=>{if(tab==='hist'){HIST=null;loadHist(true);}else load(true);};
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 updateBell();
 load(false);
