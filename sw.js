@@ -1,5 +1,5 @@
 // FC PICKERS service worker — offline-capable pick sheet
-const SHELL_CACHE = 'shell-v8';
+const SHELL_CACHE = 'shell-v9';
 const DATA_CACHE  = 'data-v8';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 

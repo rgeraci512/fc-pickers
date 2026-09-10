@@ -274,17 +274,37 @@ function rec(t,pts){return `${t.w}–${t.l}${t.p?'–'+t.p:''} <span style="colo
 function boardHtml(){
   const R=data.record||{}, S=data.standing||{};
   const wkFC=tally(fcGames(),gradeATS), wkAll=tally(games(),gradeATS), wkTG=tally(tgGames().filter(x=>x.rank>0),gradeTG);
+  const lwWeek=(data.last_week||{}).week||'';
+  const lwOf=b=>{const t=b&&b.weeks&&b.weeks[lwWeek];return t?rec(t,b===R.tailgate):'—';};
   const rows=[
-    {id:'fc',l:'FC PICKERS pool',wk:rec(wkFC),sn:rec(season(R.fc,wkFC))},
-    {id:'tailgate',l:'Tailgate pool',wk:rec(wkTG,true),sn:rec(season(R.tailgate,wkTG),true)},
-    {id:'all',l:'All games tracked',wk:rec(wkAll),sn:rec(season(R.all,wkAll))},
+    {id:'fc',l:'FC PICKERS pool',lw:lwOf(R.fc),wk:rec(wkFC),sn:rec(season(R.fc,wkFC))},
+    {id:'tailgate',l:'Tailgate pool',lw:lwOf(R.tailgate),wk:rec(wkTG,true),sn:rec(season(R.tailgate,wkTG),true)},
+    {id:'all',l:'All games tracked',lw:lwOf(R.all),wk:rec(wkAll),sn:rec(season(R.all,wkAll))},
   ];
-  let h='<table><tr><td class="l"></td><td class="l">This week</td><td class="l">Season</td></tr>'+
-    rows.map(r=>`<tr class="${r.id===tab?'me':''}"><td class="l">${r.l}</td><td>${r.wk}</td><td>${r.sn}</td></tr>`).join('')+'</table>';
+  let h='<table><tr><td class="l"></td><td class="l">Last week</td><td class="l">This week</td><td class="l">Season</td></tr>'+
+    rows.map(r=>`<tr class="${r.id===tab?'me':''}"><td class="l">${r.l}</td><td>${r.lw}</td><td>${r.wk}</td><td>${r.sn}</td></tr>`).join('')+'</table>';
   const st=S[tab==='all'?'fc':tab];
   if(st&&st.place)h+=`<div class="std">📍 <b>${esc(st.place)}</b> of ${esc(st.of||'?')}${st.as_of?' • '+esc(st.as_of):''}</div>`;
   else if(tab!=='all')h+=`<div class="std">📍 Pool standing posts after the first week is scored.</div>`;
   return `<div class="board">${h}</div>`;
+}
+
+function lastWeekHtml(){
+  const LW=data.last_week||{}; if(!LW.week) return '';
+  const lists = tab==='tailgate' ? [['Tailgate',LW.tailgate]] : tab==='fc' ? [['FC PICKERS',LW.fc]] : [['FC PICKERS',LW.fc],['Tailgate',LW.tailgate]];
+  let inner='';
+  for(const [label,rows] of lists){
+    if(!rows||!rows.length) continue;
+    const w=rows.filter(r=>r.result==='W').length, l=rows.filter(r=>r.result==='L').length;
+    inner+=`<div style="font-weight:800;margin:8px 0 4px">${esc(label)} — ${w}–${l}</div>`+
+      rows.map(r=>{const win=r.result==='W';
+        const ln=r.pool_line==null?'':' '+((r.pick===r.home?-r.pool_line:r.pool_line)>0?'+':'')+String(r.pick===r.home?-r.pool_line:r.pool_line);
+        return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #eee;font-size:13px">
+          <span><b style="color:${win?'var(--strong)':'var(--key)'}">${win?'✓':'✗'}</b> ${esc(r.pick)}${ln}</span>
+          <span style="color:#777">${esc(r.road)} ${esc(r.score)} ${esc(r.home)}</span></div>`;}).join('');
+  }
+  if(!inner) return '';
+  return `<details class="board" style="margin-top:8px"><summary style="cursor:pointer;font-weight:800">📋 Last week review — ${esc(LW.week)}</summary>${inner}</details>`;
 }
 
 function scoreHtml(g,grade){
@@ -382,7 +402,7 @@ function render(){
   if(!data||!games().length){cards.innerHTML='';sum.style.display='none';chips.style.display='none';
     board.innerHTML='';empty.style.display='block';empty.innerHTML='No picks loaded yet. Tap Refresh once this week\'s sheet is built.';return;}
   empty.style.display='none';
-  board.innerHTML=boardHtml();
+  board.innerHTML=boardHtml()+lastWeekHtml();
   const lock=(data.lock||{})[tab==='all'?'fc':tab];
   sub.textContent=`${data.week} • built ${data.generated}${lock?' • locks '+lock:''}`;
   let html='', shown=0, other=0;
