@@ -140,7 +140,7 @@ const BADGE={STRONG:'var(--strong)',LEAN:'var(--lean)',SLIM:'var(--slim)'};
 const TABS=[{id:'fc',name:'FC',cls:''},{id:'tailgate',name:'TAILGATE',cls:'tg'},{id:'flips',name:'FLIPS',cls:'fl'},{id:'all',name:'ALL',cls:'all'},{id:'hist',name:'HISTORY',cls:'hi'}];
 const FILTERS={fc:['All','STRONG','LEAN','KEY #','Not entered'],flips:['All','Pool games','Not in a pool'],all:['All','Pool games','Not in a pool','STRONG','LEAN']};
 let data=null, tab='fc', filter='All', query='';
-let HIST=null, histWeek='', histLoading=false;
+let HIST=null, histWeek='', histLoading=false, lwOpen=false;
 
 // ---- payload accessors (v3) ----
 function games(){return (data&&data.games)||[];}
@@ -312,7 +312,7 @@ function lastWeekHtml(){
           <span style="color:#777">${esc(r.road)} ${esc(r.score)} ${esc(r.home)}</span></div>`;}).join('');
   }
   if(!inner) return '';
-  return `<details class="board" open style="margin-top:8px"><summary style="cursor:pointer;font-weight:800">📋 Last week review — ${esc(LW.week)}</summary>${inner}</details>`;
+  return `<details class="board" id="lwrev"${lwOpen?' open':''} style="margin-top:8px"><summary style="cursor:pointer;font-weight:800">📋 Last week review — ${esc(LW.week)}</summary>${inner}</details>`;
 }
 
 function scoreHtml(g,grade){
@@ -541,6 +541,8 @@ function render(){
     board.innerHTML='';empty.style.display='block';empty.innerHTML='No picks loaded yet. Tap Refresh once this week\'s sheet is built.';return;}
   empty.style.display='none';
   board.innerHTML=boardHtml()+lastWeekHtml();
+  const lwd=document.getElementById('lwrev');
+  if(lwd)lwd.addEventListener('toggle',()=>{lwOpen=lwd.open;});
   const lock=(data.lock||{})[(tab==='all'||tab==='flips')?'fc':tab];
   sub.textContent=`${data.week} • built ${data.generated}${lock?' • locks '+lock:''}`;
   let html='', shown=0, other=0;
